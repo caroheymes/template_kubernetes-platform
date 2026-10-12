@@ -152,36 +152,28 @@ kubectl run mlops-reset --rm -it --restart=Never --image=mlops-app:v1.0.0 -n k8s
 
 ---
 
-### Option B : Déclenchement via Webhook FastAPI (Recommandé en Production)
+### Option B : Déclenchement via Webhook FastAPI (`curl`)
 Déclenche de façon non bloquante la boucle de réentraînement via l'API REST sécurisée :
 
-```powershell
-# Depuis la machine hôte (avec port-forward 8000:8000 actif)
-$headers = @{ "x-webhook-secret" = "k8s-mlops-super-secure-token" }
-$body = @{
-    source = "evidently-worker"
-    event_type = "drift_alert"
-    drift_score = 0.42
-    details = @{ metric = "ks_test_pvalue_drop" }
-} | ConvertTo-Json
-
-Invoke-RestMethod -Uri "http://localhost:8000/webhooks/trigger-retrain" -Method Post -Headers $headers -Body $body -ContentType "application/json"
+```bash
+# Appel sécurisé au webhook de réentraînement
+curl -X POST http://localhost:8000/webhooks/trigger-retrain \
+  -H "Content-Type: application/json" \
+  -H "x-webhook-secret: k8s-mlops-super-secure-token" \
+  -d '{
+    "source": "evidently-worker",
+    "event_type": "drift_alert",
+    "drift_score": 0.42,
+    "details": {"metric": "ks_test_pvalue_drop"}
+  }'
 ```
 
 ---
 
-### Option C : Exécution Locale (Machine Hôte Windows)
-Si vous souhaitez exécuter les scripts directement dans votre terminal local, activez préalablement les tunnels de redirection de ports vers PostgreSQL et MLflow :
-
-```powershell
-# Dans 2 terminaux distincts :
-kubectl port-forward svc/k8s-mlops-postgres 5432:5432 -n k8s-mlops
-kubectl port-forward svc/k8s-mlops-mlflow 5002:5000 -n k8s-mlops
-
-# Puis exécutez dans votre environnement Python local (.venv) :
-python -m src.training.train_xgboost
-python -m src.training.retrain_pipeline
-```
+### Option C : Pilotage Interactif via le Portail Streamlit
+Toutes les actions opérationnelles peuvent être déclenchées sans ligne de commande directement sur l'interface graphique :
+* Rendez-vous sur **`http://localhost:8503`** (port-forward Streamlit).
+* Page **`4_Webhooks`** : Simulez une dérive de données, auditez les logs d'événements et déclenchez le réentraînement en un clic.
 
 ---
 

@@ -108,70 +108,69 @@ kubectl port-forward svc/k8s-mlops-mlflow 5002:5000 -n k8s-mlops
 
 ---
 
-## ⚡ Pipelines & Operational Workflows
+## ⚡ Kubernetes Operational Workflows & Pipelines
 
-In a cloud-native Kubernetes architecture, operations are segmented by workload type rather than executed inside long-lived UI pods:
+In a cloud-native architecture, all machine learning tasks, transformations, and audits execute inside isolated containers within the Kubernetes cluster:
 
-### 1. Automated & Event-Driven Triggers (REST API)
-Trigger asynchronous retraining or batch inferences from external systems, monitoring agents, or CI pipelines:
+### 1. In-Cluster ML Jobs (`kubectl run / create job`)
+Execute ephemeral tasks inheriting cluster configuration, secrets, and GPU/CPU limits:
 
-```powershell
-# Trigger Closed-Loop Retraining via authenticated Webhook
-Invoke-RestMethod -Method Post -Uri http://localhost:8000/webhooks/trigger-retrain `
-  -Headers @{"x-webhook-secret"="k8s-mlops-super-secure-token"} `
-  -ContentType "application/json" `
-  -Body '{"source":"evidently","event_type":"drift_alert","drift_score":0.42}'
-
-# High-Throughput Vectorized Batch Inference
-Invoke-RestMethod -Method Post -Uri http://localhost:8000/predict/batch `
-  -ContentType "application/json" `
-  -Body '{"items":[{"features":{"feature_1":1.25,"feature_2":-0.45,"feature_3":2.10,"feature_4":0.85}}]}'
-```
-
-### 2. Isolated In-Cluster Batch Jobs (`kubectl run / create job`)
-Run resource-intensive ML tasks in ephemeral containers inheriting cluster secrets and configmaps:
-
-```powershell
+```bash
 # 1. Baseline Model Training & Initial Registry Bootstrap
-kubectl run mlops-train --rm -it --restart=Never --image=mlops-app:v1.0.0 -n k8s-mlops `
-  --env-from=configmap/k8s-mlops-config `
+kubectl run mlops-train --rm -it --restart=Never --image=ghcr.io/caroheymes/template_kubernetes-platform/app:latest -n k8s-mlops \
+  --env-from=configmap/k8s-mlops-config \
   --command -- python -m src.training.train_xgboost
 
 # 2. Distributed Hyperparameter Tuning (Ray + Optuna)
-kubectl run mlops-hpo --rm -it --restart=Never --image=mlops-app:v1.0.0 -n k8s-mlops `
-  --env-from=configmap/k8s-mlops-config `
+kubectl run mlops-hpo --rm -it --restart=Never --image=ghcr.io/caroheymes/template_kubernetes-platform/app:latest -n k8s-mlops \
+  --env-from=configmap/k8s-mlops-config \
   --command -- python -m src.training.hpo_optuna
 
 # 3. Autonomous Closed-Loop Retraining (HPO -> Fit -> Quality Gate -> Hot-Reload)
-kubectl run mlops-retrain --rm -it --restart=Never --image=mlops-app:v1.0.0 -n k8s-mlops `
-  --env-from=configmap/k8s-mlops-config `
+kubectl run mlops-retrain --rm -it --restart=Never --image=ghcr.io/caroheymes/template_kubernetes-platform/app:latest -n k8s-mlops \
+  --env-from=configmap/k8s-mlops-config \
   --command -- python -m src.training.retrain_pipeline
 
-# 4. Trigger Immediate dbt Analytics Modeling (from CronJob template)
+# 4. Data & Concept Drift Analysis (Evidently Report Generation)
+kubectl run mlops-drift --rm -it --restart=Never --image=ghcr.io/caroheymes/template_kubernetes-platform/app:latest -n k8s-mlops \
+  --env-from=configmap/k8s-mlops-config \
+  --command -- python -m src.monitoring.drift_detector
+
+# 5. Immediate Analytics Transformation (from dbt CronJob template)
 kubectl create job --from=cronjob/k8s-mlops-dbt-runner dbt-manual-run -n k8s-mlops
 
-# 5. In-Cluster Platform & Multi-Database Health Audit
-kubectl run mlops-check --rm -it --restart=Never --image=mlops-app:v1.0.0 -n k8s-mlops `
-  --env-from=configmap/k8s-mlops-config `
+# 6. In-Cluster Platform & Multi-Database Health Audit
+kubectl run mlops-check --rm -it --restart=Never --image=ghcr.io/caroheymes/template_kubernetes-platform/app:latest -n k8s-mlops \
+  --env-from=configmap/k8s-mlops-config \
   --command -- python -m src.utils.check_status
 ```
 
-### 3. Local Development & Tooling CLI (via Port-Forwarding)
-When developing or testing locally on your workstation:
+### 2. Live Inference & API Consumption (`curl`)
+Consume real-time predictions through the FastAPI microservice:
 
-```powershell
-# 1. Open tunnels to PostgreSQL and MLflow
-kubectl port-forward svc/k8s-mlops-postgres 5432:5432 -n k8s-mlops
-kubectl port-forward svc/k8s-mlops-mlflow 5000:5000 -n k8s-mlops
+```bash
+# Real-Time Unit Inference (< 50ms)
+curl -X POST http://localhost:8000/predict \
+  -H "Content-Type: application/json" \
+  -d '{"features": {"feature_1": 1.25, "feature_2": -0.45, "feature_3": 2.10, "feature_4": 0.85}}'
 
-# 2. Execute local tools & pipelines
-python -m src.training.train_xgboost
-python -m src.monitoring.drift_detector
-python -m src.utils.threshold
-python -m src.utils.api_reloader
-python -m src.utils.mlflow_manager
-python -m src.utils.full_reset_mlops
+# Vectorized Batch Inference
+curl -X POST http://localhost:8000/predict/batch \
+  -H "Content-Type: application/json" \
+  -d '{"items": [{"features": {"feature_1": 1.25, "feature_2": -0.45, "feature_3": 2.10, "feature_4": 0.85}}]}'
+
+# Explainable Prediction (XAI feature contributions via Shapash)
+curl -X POST http://localhost:8000/predict/explain \
+  -H "Content-Type: application/json" \
+  -d '{"features": {"feature_1": 1.25, "feature_2": -0.45, "feature_3": 2.10, "feature_4": 0.85}}'
 ```
+
+### 3. Operations via Streamlit Portal (`http://localhost:8503`)
+For interactive workflows and operational visibility:
+* **Page 1 (App)** : Real-time single & batch inference testing, file uploads, and queue streaming.
+* **Page 2 (XAI)** : Shapash feature importance and waterfall contribution charts.
+* **Page 3 (Analytics)** : dbt performance marts, request throughput, and latency percentiles (P50/P95/P99).
+* **Page 4 (Webhooks)** : Drift alert testing, automated retraining triggers, and event log auditing.
 
 
 ---
