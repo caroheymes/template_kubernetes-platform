@@ -117,28 +117,37 @@ kubectl port-forward svc/k8s-mlops-mlflow 5002:5000 -n k8s-mlops
 
 ## 7. Commandes d'Entraînement, Réentraînement & Opérations MLOps
 
-### Option A : Exécution DIRECTEMENT DANS le Cluster Kubernetes (`kubectl exec`)
-Puisque le code, les dépendances Python et l'accès direct aux services internes (`postgres:5432`, `mlflow:5000`) sont conteneurisés dans le pod applicatif, utilisez `kubectl exec` :
+### Option A : Exécution Isolé en Cluster (Pods Éphémères & Jobs K8s)
+Pour exécuter les opérations lourdes sans impacter la mémoire ou la disponibilité des pods web applicatifs :
 
 ```powershell
 # 1. Entraînement initial baseline dans le cluster (XGBoost + Shapash + MLflow)
-kubectl exec -it deployment/k8s-mlops-streamlit -n k8s-mlops -c streamlit -- python -m src.training.train_xgboost
+kubectl run mlops-train --rm -it --restart=Never --image=mlops-app:v1.0.0 -n k8s-mlops `
+  --env-from=configmap/k8s-mlops-config `
+  --command -- python -m src.training.train_xgboost
 
 # 2. Optimisation d'hyperparamètres distribuée (Ray + Optuna)
-kubectl exec -it deployment/k8s-mlops-streamlit -n k8s-mlops -c streamlit -- python -m src.training.hpo_optuna
+kubectl run mlops-hpo --rm -it --restart=Never --image=mlops-app:v1.0.0 -n k8s-mlops `
+  --env-from=configmap/k8s-mlops-config `
+  --command -- python -m src.training.hpo_optuna
 
 # 3. Réentraînement complet autonome en boucle fermée (Closed-Loop Retraining)
-# (HPO -> Fit XGBoost -> Gain >= 2% -> Promotion @champion -> Hot-Reload)
-kubectl exec -it deployment/k8s-mlops-streamlit -n k8s-mlops -c streamlit -- python -m src.training.retrain_pipeline
+kubectl run mlops-retrain --rm -it --restart=Never --image=mlops-app:v1.0.0 -n k8s-mlops `
+  --env-from=configmap/k8s-mlops-config `
+  --command -- python -m src.training.retrain_pipeline
 
-# 4. Ingestion batch queue dans le cluster
-kubectl exec -it deployment/k8s-mlops-streamlit -n k8s-mlops -c streamlit -- python -m src.utils.process_queue --dir data/queue
+# 4. Déclenchement manuel immédiat des transformations analytiques dbt
+kubectl create job --from=cronjob/k8s-mlops-dbt-runner dbt-manual-run -n k8s-mlops
 
 # 5. Diagnostic de santé complet depuis l'intérieur du cluster
-kubectl exec -it deployment/k8s-mlops-streamlit -n k8s-mlops -c streamlit -- python -m src.utils.check_status
+kubectl run mlops-check --rm -it --restart=Never --image=mlops-app:v1.0.0 -n k8s-mlops `
+  --env-from=configmap/k8s-mlops-config `
+  --command -- python -m src.utils.check_status
 
 # 6. Grand Reset MLOps (Purge & Réinitialisation Contrôlée)
-kubectl exec -it deployment/k8s-mlops-streamlit -n k8s-mlops -c streamlit -- python -m src.utils.full_reset_mlops
+kubectl run mlops-reset --rm -it --restart=Never --image=mlops-app:v1.0.0 -n k8s-mlops `
+  --env-from=configmap/k8s-mlops-config `
+  --command -- python -m src.utils.full_reset_mlops
 ```
 
 ---
@@ -148,24 +157,15 @@ Déclenche de façon non bloquante la boucle de réentraînement via l'API REST 
 
 ```powershell
 # Depuis la machine hôte (avec port-forward 8000:8000 actif)
-$headers = @{ "X-Webhook-Token" = "k8s-mlops-super-secure-token" }
+$headers = @{ "x-webhook-secret" = "k8s-mlops-super-secure-token" }
 $body = @{
-    event = "drift_detected"
-    drift_type = "dual_drift_detected"
-    features_drifted = @("feature_1", "feature_3")
-    psi_score = 0.35
-    degradation_pct = 18.5
+    source = "evidently-worker"
+    event_type = "drift_alert"
+    drift_score = 0.42
+    details = @{ metric = "ks_test_pvalue_drop" }
 } | ConvertTo-Json
 
-Invoke-RestMethod -Uri "http://localhost:8000/webhooks/retrain" -Method Post -Headers $headers -Body $body -ContentType "application/json"
-```
-
-```bash
-# Ou directement en interne depuis un pod du cluster
-kubectl exec -it deployment/k8s-mlops-serving -n k8s-mlops -c serving -- curl -X POST "http://localhost:8000/webhooks/retrain" \
-  -H "Content-Type: application/json" \
-  -H "X-Webhook-Token: k8s-mlops-super-secure-token" \
-  -d '{"event": "drift_detected", "drift_type": "dual_drift_detected"}'
+Invoke-RestMethod -Uri "http://localhost:8000/webhooks/trigger-retrain" -Method Post -Headers $headers -Body $body -ContentType "application/json"
 ```
 
 ---

@@ -108,26 +108,70 @@ kubectl port-forward svc/k8s-mlops-mlflow 5002:5000 -n k8s-mlops
 
 ---
 
-## ⚡ Pipelines & CLI Commands
+## ⚡ Pipelines & Operational Workflows
 
-> [!TIP]
-> **In-Cluster Execution**: All Python operations can be executed directly inside Kubernetes via:  
-> `kubectl exec -it deployment/k8s-mlops-streamlit -n k8s-mlops -c streamlit -- <command>`  
-> To execute locally from your host machine, establish port-forward tunnels (`kubectl port-forward svc/k8s-mlops-postgres 5432:5432` and `kubectl port-forward svc/k8s-mlops-mlflow 5002:5000`).
+In a cloud-native Kubernetes architecture, operations are segmented by workload type rather than executed inside long-lived UI pods:
 
-| Operation | In-Cluster Command (`kubectl exec ... --`) | Local Command | Description |
-| :--- | :--- | :--- | :--- |
-| **Initial Training** | `python -m src.training.train_xgboost` | `python -m src.training.train_xgboost` | Fits baseline XGBoost model, logs metrics (RMSE, R²), initializes Shapash explainer and registers version 1 in MLflow. |
-| **Ray Distributed HPO** | `python -m src.training.hpo_optuna` | `python -m src.training.hpo_optuna` | Distributed Bayesian parameter tuning via Ray workers and PostgreSQL (`optuna`), with automatic fallback. |
-| **Closed-Loop Retraining** | `python -m src.training.retrain_pipeline` | `python -m src.training.retrain_pipeline` | Complete autonomous loop: HPO -> XGBoost Retrain -> Champion vs Challenger (gain >= 2%) -> MLflow Promotion -> Hot-Reload. |
-| **Webhook Retraining** | N/A (REST API) | `Invoke-RestMethod -Method Post -Uri http://localhost:8000/webhooks/trigger-retrain -Headers @{"x-webhook-secret"="k8s-mlops-super-secure-token"} -ContentType "application/json" -Body '{"source":"manual","event_type":"drift_alert","drift_score":0.42}'` | Asynchronous trigger invoked upon data or concept drift alert. |
-| **Drift Monitoring** | `python -m src.monitoring.drift_detector` | `python -m src.monitoring.drift_detector` | Runs Kolmogorov-Smirnov statistical tests and RMSE degradation checks via Evidently AI. |
-| **Threshold Calibration** | `python -m src.utils.threshold` | `python -m src.utils.threshold` | Calibrates optimal decision threshold (F1/F2, cost matrix) and plots confusion metrics. |
-| **Hot-Reload In-Memory** | `python -m src.utils.api_reloader` | `python -m src.utils.api_reloader` | Triggers immediate hot-reload of active model in memory with zero-downtime health verification. |
-| **MLflow Quality Gate** | `python -m src.utils.mlflow_manager` | `python -m src.utils.mlflow_manager` | Evaluates Champion vs Challenger metrics and enforces minimum relative gain (+2%) before alias promotion. |
-| **Queue Batch Worker** | `python -m src.utils.process_queue --dir data/queue` | `python -m src.utils.process_queue --dir data/queue` | Consumes queued CSV files and streams predictions to FastAPI `/predict/batch`. |
-| **Platform Health Check** | `python -m src.utils.check_status` | `python -m src.utils.check_status` | Audits FastAPI, PostgreSQL databases (`mlops`, `mlflow`, `optuna`), and MLflow tracking readiness. |
-| **Full MLOps Reset** | `python -m src.utils.full_reset_mlops` | `python -m src.utils.full_reset_mlops` | Purges MLflow runs/models, resets operational PostgreSQL tables, and bootstraps a fresh Champion baseline. |
+### 1. Automated & Event-Driven Triggers (REST API)
+Trigger asynchronous retraining or batch inferences from external systems, monitoring agents, or CI pipelines:
+
+```powershell
+# Trigger Closed-Loop Retraining via authenticated Webhook
+Invoke-RestMethod -Method Post -Uri http://localhost:8000/webhooks/trigger-retrain `
+  -Headers @{"x-webhook-secret"="k8s-mlops-super-secure-token"} `
+  -ContentType "application/json" `
+  -Body '{"source":"evidently","event_type":"drift_alert","drift_score":0.42}'
+
+# High-Throughput Vectorized Batch Inference
+Invoke-RestMethod -Method Post -Uri http://localhost:8000/predict/batch `
+  -ContentType "application/json" `
+  -Body '{"items":[{"features":{"feature_1":1.25,"feature_2":-0.45,"feature_3":2.10,"feature_4":0.85}}]}'
+```
+
+### 2. Isolated In-Cluster Batch Jobs (`kubectl run / create job`)
+Run resource-intensive ML tasks in ephemeral containers inheriting cluster secrets and configmaps:
+
+```powershell
+# 1. Baseline Model Training & Initial Registry Bootstrap
+kubectl run mlops-train --rm -it --restart=Never --image=mlops-app:v1.0.0 -n k8s-mlops `
+  --env-from=configmap/k8s-mlops-config `
+  --command -- python -m src.training.train_xgboost
+
+# 2. Distributed Hyperparameter Tuning (Ray + Optuna)
+kubectl run mlops-hpo --rm -it --restart=Never --image=mlops-app:v1.0.0 -n k8s-mlops `
+  --env-from=configmap/k8s-mlops-config `
+  --command -- python -m src.training.hpo_optuna
+
+# 3. Autonomous Closed-Loop Retraining (HPO -> Fit -> Quality Gate -> Hot-Reload)
+kubectl run mlops-retrain --rm -it --restart=Never --image=mlops-app:v1.0.0 -n k8s-mlops `
+  --env-from=configmap/k8s-mlops-config `
+  --command -- python -m src.training.retrain_pipeline
+
+# 4. Trigger Immediate dbt Analytics Modeling (from CronJob template)
+kubectl create job --from=cronjob/k8s-mlops-dbt-runner dbt-manual-run -n k8s-mlops
+
+# 5. In-Cluster Platform & Multi-Database Health Audit
+kubectl run mlops-check --rm -it --restart=Never --image=mlops-app:v1.0.0 -n k8s-mlops `
+  --env-from=configmap/k8s-mlops-config `
+  --command -- python -m src.utils.check_status
+```
+
+### 3. Local Development & Tooling CLI (via Port-Forwarding)
+When developing or testing locally on your workstation:
+
+```powershell
+# 1. Open tunnels to PostgreSQL and MLflow
+kubectl port-forward svc/k8s-mlops-postgres 5432:5432 -n k8s-mlops
+kubectl port-forward svc/k8s-mlops-mlflow 5000:5000 -n k8s-mlops
+
+# 2. Execute local tools & pipelines
+python -m src.training.train_xgboost
+python -m src.monitoring.drift_detector
+python -m src.utils.threshold
+python -m src.utils.api_reloader
+python -m src.utils.mlflow_manager
+python -m src.utils.full_reset_mlops
+```
 
 
 ---
