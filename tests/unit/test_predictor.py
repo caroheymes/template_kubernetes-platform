@@ -1,6 +1,6 @@
 """Tests unitaires pour le moteur d'inférence XGBoost."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from src.serving.predictor import XGBoostPredictor
 from src.serving.schemas import PredictionRequest
@@ -51,7 +51,12 @@ def test_predictor_db_logging_resilience():
 
     # Dépatcher pour exécuter le vrai corps de _log_prediction_to_db avec déconnexion simulée
     from src.serving.predictor import XGBoostPredictor as RealCls
-    with patch.object(pred, "_log_prediction_to_db", lambda *args, **kwargs: RealCls._log_prediction_to_db(pred, *args, **kwargs)):
+
+    with patch.object(
+        pred,
+        "_log_prediction_to_db",
+        lambda *args, **kwargs: RealCls._log_prediction_to_db(pred, *args, **kwargs),
+    ):
         with patch("src.serving.predictor.get_engine", side_effect=Exception("Database down")):
             req = PredictionRequest(features={"feature_1": 0.5})
             resp = pred.predict(req)
@@ -63,9 +68,7 @@ def test_predictor_force_hot_reload():
     pred = XGBoostPredictor()
     pred.load_model()
     assert pred.is_ready is True
-    first_version = pred.version
 
     # Rechargement forcé
     pred.load_model(force=True)
     assert pred.is_ready is True
-

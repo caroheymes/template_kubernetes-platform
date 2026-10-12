@@ -8,10 +8,8 @@ import logging
 from typing import Any
 
 from sqlalchemy import inspect, text
-from sqlalchemy.engine import Engine
 
-from ..common.config import db_settings
-from ..common.db import get_db_connection, get_engine
+from ..common.db import get_engine
 
 logger = logging.getLogger("k8s_mlops.utils.db")
 
@@ -45,7 +43,9 @@ def inspect_database_tables(db_name: str = "mlops") -> dict[str, list[str]]:
     return tables_by_schema
 
 
-def execute_sql_query(query: str, db_name: str = "mlops", params: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+def execute_sql_query(
+    query: str, db_name: str = "mlops", params: dict[str, Any] | None = None
+) -> list[dict[str, Any]]:
     """Exécute une requête SQL SELECT sécurisée et retourne les résultats en liste de dictionnaires."""
     eng = get_engine(db_name=db_name)
     with eng.connect() as conn:

@@ -3,6 +3,7 @@
 import shutil
 import subprocess
 from pathlib import Path
+
 import pytest
 import yaml
 
@@ -63,22 +64,34 @@ def test_helm_template_contract_verification():
 
     # 2. Vérification de l'injection des variables d'authentification PostgreSQL dans Serving
     serving_doc = next(
-        (d for d in docs if d.get("kind") == "Deployment" and d["metadata"]["name"] == "k8s-mlops-serving"),
+        (
+            d
+            for d in docs
+            if d.get("kind") == "Deployment" and d["metadata"]["name"] == "k8s-mlops-serving"
+        ),
         None,
     )
     assert serving_doc is not None
-    serving_env = {e["name"]: e for e in serving_doc["spec"]["template"]["spec"]["containers"][0]["env"]}
+    serving_env = {
+        e["name"]: e for e in serving_doc["spec"]["template"]["spec"]["containers"][0]["env"]
+    }
     assert "POSTGRES_USER" in serving_env
     assert "POSTGRES_PASSWORD" in serving_env
     assert "WEBHOOK_SECRET_TOKEN" in serving_env
 
     # 3. Vérification de l'injection des variables d'authentification PostgreSQL dans Streamlit
     streamlit_doc = next(
-        (d for d in docs if d.get("kind") == "Deployment" and d["metadata"]["name"] == "k8s-mlops-streamlit"),
+        (
+            d
+            for d in docs
+            if d.get("kind") == "Deployment" and d["metadata"]["name"] == "k8s-mlops-streamlit"
+        ),
         None,
     )
     assert streamlit_doc is not None
-    streamlit_env = {e["name"]: e for e in streamlit_doc["spec"]["template"]["spec"]["containers"][0]["env"]}
+    streamlit_env = {
+        e["name"]: e for e in streamlit_doc["spec"]["template"]["spec"]["containers"][0]["env"]
+    }
     assert "POSTGRES_USER" in streamlit_env
     assert "POSTGRES_PASSWORD" in streamlit_env
     assert "WEBHOOK_SECRET_TOKEN" in streamlit_env
@@ -86,12 +99,18 @@ def test_helm_template_contract_verification():
     # 4. Vérification de la cible --target prod dans dbt-cronjob
     dbt_doc = next((d for d in docs if d.get("kind") == "CronJob"), None)
     assert dbt_doc is not None
-    dbt_args = dbt_doc["spec"]["jobTemplate"]["spec"]["template"]["spec"]["containers"][0]["args"][0]
+    dbt_args = dbt_doc["spec"]["jobTemplate"]["spec"]["template"]["spec"]["containers"][0]["args"][
+        0
+    ]
     assert "--target prod" in dbt_args
 
     # 5. Vérification du schéma staging dans postgres-init
     pg_init_doc = next(
-        (d for d in docs if d.get("kind") == "ConfigMap" and "postgres-init" in d["metadata"]["name"]),
+        (
+            d
+            for d in docs
+            if d.get("kind") == "ConfigMap" and "postgres-init" in d["metadata"]["name"]
+        ),
         None,
     )
     assert pg_init_doc is not None

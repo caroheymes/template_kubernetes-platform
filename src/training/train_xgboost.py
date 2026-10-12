@@ -75,7 +75,7 @@ def train_model(params: dict[str, Any] | None = None) -> tuple[xgb.Booster, dict
 
     # Entraînement et sauvegarde du SmartExplainer Shapash
     try:
-        explainer = init_smart_explainer(model, X_test, y_test)
+        init_smart_explainer(model, X_test, y_test)
         logger.info(f"SmartExplainer Shapash initialisé avec succès pour le run {run_id}.")
     except Exception as e:
         logger.warning(f"Initialisation Shapash différée : {e}")

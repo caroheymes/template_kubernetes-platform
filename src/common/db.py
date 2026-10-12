@@ -35,7 +35,6 @@ def get_engine(db_name: str | None = None, pool_size: int = 5, max_overflow: int
     return _ENGINES[cache_key]
 
 
-
 def dispose_all_engines() -> None:
     """Ferme proprement l'ensemble des pools de connexions lors de l'arrêt."""
     for eng in _ENGINES.values():
@@ -49,4 +48,3 @@ def get_db_connection(db_name: str | None = None) -> Generator[Connection, None,
     engine = get_engine(db_name=db_name)
     with engine.begin() as conn:
         yield conn
-

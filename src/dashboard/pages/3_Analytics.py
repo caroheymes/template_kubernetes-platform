@@ -13,7 +13,9 @@ from src.common.db import get_engine
 st.set_page_config(page_title="Analytics — Marts dbt", page_icon="📊", layout="wide")
 
 st.title("📊 Vues Analytiques & KPIs — Modélisation dbt")
-st.markdown("Indicateurs de performance opérationnelle et métriques de production calculés par dbt.")
+st.markdown(
+    "Indicateurs de performance opérationnelle et métriques de production calculés par dbt."
+)
 
 
 @st.cache_data(ttl=60)
@@ -31,13 +33,60 @@ def load_dbt_kpis() -> pd.DataFrame:
     except Exception:
         # Fallback pour démonstration immédiate sans dépendance
         dates = pd.date_range(end=pd.Timestamp.now(), periods=14, freq="D")
-        return pd.DataFrame({
-            "received_date": dates,
-            "total_requests": [1240, 1580, 1420, 1890, 2100, 1950, 1800, 2200, 2450, 2300, 2150, 2600, 2800, 3100],
-            "latency_p50_ms": [18.2, 19.1, 18.5, 20.2, 21.0, 19.8, 18.9, 19.4, 20.1, 20.8, 19.5, 21.2, 20.5, 19.9],
-            "latency_p95_ms": [34.5, 38.2, 36.1, 41.0, 42.5, 39.8, 37.4, 38.9, 41.2, 43.0, 40.5, 42.8, 41.9, 40.2],
-            "model_version": ["champion"] * 14,
-        })
+        return pd.DataFrame(
+            {
+                "received_date": dates,
+                "total_requests": [
+                    1240,
+                    1580,
+                    1420,
+                    1890,
+                    2100,
+                    1950,
+                    1800,
+                    2200,
+                    2450,
+                    2300,
+                    2150,
+                    2600,
+                    2800,
+                    3100,
+                ],
+                "latency_p50_ms": [
+                    18.2,
+                    19.1,
+                    18.5,
+                    20.2,
+                    21.0,
+                    19.8,
+                    18.9,
+                    19.4,
+                    20.1,
+                    20.8,
+                    19.5,
+                    21.2,
+                    20.5,
+                    19.9,
+                ],
+                "latency_p95_ms": [
+                    34.5,
+                    38.2,
+                    36.1,
+                    41.0,
+                    42.5,
+                    39.8,
+                    37.4,
+                    38.9,
+                    41.2,
+                    43.0,
+                    40.5,
+                    42.8,
+                    41.9,
+                    40.2,
+                ],
+                "model_version": ["champion"] * 14,
+            }
+        )
 
 
 @st.cache_data(ttl=60)
@@ -54,13 +103,75 @@ def load_dbt_distribution() -> pd.DataFrame:
             return pd.read_sql(query, con=conn)
     except Exception:
         dates = pd.date_range(end=pd.Timestamp.now(), periods=14, freq="D")
-        return pd.DataFrame({
-            "received_date": dates,
-            "mean_score": [2.45, 2.48, 2.41, 2.50, 2.52, 2.49, 2.47, 2.51, 2.53, 2.48, 2.50, 2.55, 2.52, 2.51],
-            "q1_score": [1.20, 1.22, 1.18, 1.25, 1.26, 1.24, 1.21, 1.25, 1.27, 1.23, 1.25, 1.28, 1.26, 1.25],
-            "median_score": [2.35, 2.38, 2.31, 2.40, 2.42, 2.39, 2.37, 2.41, 2.43, 2.38, 2.40, 2.45, 2.42, 2.41],
-            "q3_score": [3.60, 3.65, 3.58, 3.68, 3.71, 3.66, 3.64, 3.70, 3.72, 3.67, 3.69, 3.75, 3.72, 3.70],
-        })
+        return pd.DataFrame(
+            {
+                "received_date": dates,
+                "mean_score": [
+                    2.45,
+                    2.48,
+                    2.41,
+                    2.50,
+                    2.52,
+                    2.49,
+                    2.47,
+                    2.51,
+                    2.53,
+                    2.48,
+                    2.50,
+                    2.55,
+                    2.52,
+                    2.51,
+                ],
+                "q1_score": [
+                    1.20,
+                    1.22,
+                    1.18,
+                    1.25,
+                    1.26,
+                    1.24,
+                    1.21,
+                    1.25,
+                    1.27,
+                    1.23,
+                    1.25,
+                    1.28,
+                    1.26,
+                    1.25,
+                ],
+                "median_score": [
+                    2.35,
+                    2.38,
+                    2.31,
+                    2.40,
+                    2.42,
+                    2.39,
+                    2.37,
+                    2.41,
+                    2.43,
+                    2.38,
+                    2.40,
+                    2.45,
+                    2.42,
+                    2.41,
+                ],
+                "q3_score": [
+                    3.60,
+                    3.65,
+                    3.58,
+                    3.68,
+                    3.71,
+                    3.66,
+                    3.64,
+                    3.70,
+                    3.72,
+                    3.67,
+                    3.69,
+                    3.75,
+                    3.72,
+                    3.70,
+                ],
+            }
+        )
 
 
 df_kpis = load_dbt_kpis()
@@ -103,8 +214,28 @@ st.divider()
 
 st.subheader("2. Stabilité de la Distribution des Scores Prédits (XGBoost)")
 fig_box = go.Figure()
-fig_box.add_trace(go.Scatter(x=df_dist["received_date"], y=df_dist["mean_score"], mode="lines+markers", name="Moyenne"))
-fig_box.add_trace(go.Scatter(x=df_dist["received_date"], y=df_dist["q1_score"], mode="lines", line=dict(dash="dot"), name="25e Percentile (Q1)"))
-fig_box.add_trace(go.Scatter(x=df_dist["received_date"], y=df_dist["q3_score"], mode="lines", line=dict(dash="dot"), name="75e Percentile (Q3)"))
+fig_box.add_trace(
+    go.Scatter(
+        x=df_dist["received_date"], y=df_dist["mean_score"], mode="lines+markers", name="Moyenne"
+    )
+)
+fig_box.add_trace(
+    go.Scatter(
+        x=df_dist["received_date"],
+        y=df_dist["q1_score"],
+        mode="lines",
+        line=dict(dash="dot"),
+        name="25e Percentile (Q1)",
+    )
+)
+fig_box.add_trace(
+    go.Scatter(
+        x=df_dist["received_date"],
+        y=df_dist["q3_score"],
+        mode="lines",
+        line=dict(dash="dot"),
+        name="75e Percentile (Q3)",
+    )
+)
 fig_box.update_layout(title="Dispersion Temporelle des Prédictions", height=380)
 st.plotly_chart(fig_box, use_container_width=True)

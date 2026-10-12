@@ -14,11 +14,32 @@ sources:
           - name: request_id
             tests:
               - not_null
-          - name: predicted_value
+      - name: reference_features
+        description: "Table source des features brutes de référence"
+        columns:
+          - name: id
+            tests:
+              - unique
+              - not_null
+          - name: feature_name
+            tests:
+              - not_null
+          - name: feature_value
             tests:
               - not_null
 
 models:
+  - name: stg_features
+    description: "Standardisation des features brutes de référence"
+    columns:
+      - name: record_id
+        tests:
+          - unique
+          - not_null
+      - name: feature_name
+        tests:
+          - not_null
+
   - name: stg_predictions
     description: "Nettoyage et extraction unitaire des prédictions d'inférence FastAPI"
     columns:

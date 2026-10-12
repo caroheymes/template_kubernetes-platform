@@ -2,8 +2,6 @@
 Tests unitaires pour les utilitaires transverses src/utils/
 """
 
-import os
-import tempfile
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -11,9 +9,13 @@ import pandas as pd
 import pytest
 
 from src.utils.api_reloader import reload_serving_api
-from src.utils.features import compute_cyclical_features, impute_missing_features, scale_numerical_features
+from src.utils.features import (
+    compute_cyclical_features,
+    impute_missing_features,
+    scale_numerical_features,
+)
 from src.utils.mlflow_manager import MLflowQualityGate
-from src.utils.process_queue import process_incoming_queue, process_queue_files
+from src.utils.process_queue import process_queue_files
 from src.utils.threshold import evaluate_predictions_and_curves, find_optimal_threshold
 
 
@@ -55,10 +57,12 @@ def test_evaluate_predictions_and_curves():
 
 
 def test_features_utils():
-    df = pd.DataFrame({
-        "timestamp": pd.date_range("2026-01-01", periods=10, freq="h"),
-        "val": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0],
-    })
+    df = pd.DataFrame(
+        {
+            "timestamp": pd.date_range("2026-01-01", periods=10, freq="h"),
+            "val": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0],
+        }
+    )
 
     df_cyc = compute_cyclical_features(df, "timestamp")
     assert "hour_sin" in df_cyc.columns
@@ -79,7 +83,9 @@ def test_features_utils():
 
     # Test imputation des valeurs manquantes
     df_missing = pd.DataFrame({"feature_1": [np.nan, 2.0], "feature_2": [1.0, np.nan]})
-    df_imputed = impute_missing_features(df_missing, defaults={"feature_1": 0.0, "feature_2": 0.0, "feature_3": 10.0})
+    df_imputed = impute_missing_features(
+        df_missing, defaults={"feature_1": 0.0, "feature_2": 0.0, "feature_3": 10.0}
+    )
     assert df_imputed["feature_1"].isna().sum() == 0
     assert "feature_3" in df_imputed.columns
 
@@ -112,6 +118,7 @@ def test_mlflow_quality_gate():
 
 def test_api_reloader():
     from src.serving.predictor import predictor
+
     with patch.object(predictor, "load_model") as mock_load:
         mock_load.return_value = True
         with patch.object(predictor, "_model", MagicMock()):
@@ -124,7 +131,9 @@ def test_process_queue_batch_format(tmp_path):
     queue_dir = tmp_path / "queue"
     queue_dir.mkdir()
     sample_file = queue_dir / "batch_001.csv"
-    sample_file.write_text("feature_1,feature_2,feature_3,feature_4\n1.0,2.0,3.0,4.0\n5.0,6.0,7.0,8.0\n")
+    sample_file.write_text(
+        "feature_1,feature_2,feature_3,feature_4\n1.0,2.0,3.0,4.0\n5.0,6.0,7.0,8.0\n"
+    )
 
     mock_resp = MagicMock()
     mock_resp.status_code = 200

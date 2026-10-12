@@ -24,7 +24,6 @@ from ..common.db import get_engine
 from ..training.train_xgboost import train_model
 from .api_reloader import reload_serving_api
 
-
 logger = logging.getLogger("k8s_mlops.full_reset")
 
 
@@ -39,9 +38,9 @@ def reset_mlflow_database() -> bool:
                 DO $$
                 BEGIN
                     IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'runs') THEN
-                        TRUNCATE TABLE 
-                            runs, experiment_tags, latest_metrics, metrics, params, tags, 
-                            model_version_tags, model_versions, registered_model_aliases, 
+                        TRUNCATE TABLE
+                            runs, experiment_tags, latest_metrics, metrics, params, tags,
+                            model_version_tags, model_versions, registered_model_aliases,
                             registered_model_tags, registered_models
                         CASCADE;
                     END IF;
@@ -69,10 +68,14 @@ def reset_mlflow_database() -> bool:
                     },
                 )
                 conn.commit()
-                logger.info(f"Expérience '{mlflow_settings.experiment_name}' initialisée avec succès.")
+                logger.info(
+                    f"Expérience '{mlflow_settings.experiment_name}' initialisée avec succès."
+                )
             else:
                 conn.execute(
-                    text("UPDATE experiments SET lifecycle_stage = 'active' WHERE name = :exp_name;"),
+                    text(
+                        "UPDATE experiments SET lifecycle_stage = 'active' WHERE name = :exp_name;"
+                    ),
                     {"exp_name": mlflow_settings.experiment_name},
                 )
                 conn.commit()
@@ -80,7 +83,9 @@ def reset_mlflow_database() -> bool:
         logger.info("✅ Base MLflow réinitialisée avec succès.")
         return True
     except Exception as e:
-        logger.warning(f"⚠️ Réinitialisation MLflow non effectuée (PostgreSQL potentiellement offline) : {e}")
+        logger.warning(
+            f"⚠️ Réinitialisation MLflow non effectuée (PostgreSQL potentiellement offline) : {e}"
+        )
         return False
 
 
@@ -93,7 +98,9 @@ def reset_postgres_operational_data() -> bool:
             conn.execute(text("TRUNCATE TABLE predictions.fact_predictions CASCADE;"))
             conn.execute(text("TRUNCATE TABLE webhooks.event_logs CASCADE;"))
             conn.commit()
-        logger.info("✅ Tables 'predictions.fact_predictions' et 'webhooks.event_logs' vidées avec succès.")
+        logger.info(
+            "✅ Tables 'predictions.fact_predictions' et 'webhooks.event_logs' vidées avec succès."
+        )
         return True
     except Exception as e:
         logger.warning(f"⚠️ Purge PostgreSQL ignorée (Base inaccessible ou tables absentes) : {e}")
@@ -134,12 +141,16 @@ def run_full_reset(
             logger.info(f"✅ Modèle Champion initial entraîné : {baseline_metrics}")
             try:
                 from mlflow.tracking import MlflowClient
+
                 from ..common.config import mlflow_settings
+
                 client = MlflowClient(tracking_uri=mlflow_settings.tracking_uri)
                 versions = client.search_model_versions(f"name='{mlflow_settings.model_name}'")
                 if versions:
                     latest = str(max(versions, key=lambda v: int(v.version)).version)
-                    client.set_registered_model_alias(mlflow_settings.model_name, "champion", latest)
+                    client.set_registered_model_alias(
+                        mlflow_settings.model_name, "champion", latest
+                    )
                     logger.info(f"🏆 Alias @champion réassigné à v{latest} dans le Model Registry.")
             except Exception as e:
                 logger.debug(f"Assignation alias @champion ignorée : {e}")
@@ -166,14 +177,19 @@ def run_full_reset(
 run_full_mlops_reset = run_full_reset
 
 
-
 def main() -> None:
     parser = argparse.ArgumentParser(description="Script d'administration et de Grand Reset MLOps.")
-    parser.add_argument("--skip-train", action="store_true", help="Ne pas réentraîner de modèle initial")
-    parser.add_argument("--skip-reload", action="store_true", help="Ne pas forcer le rechargement de l'API")
+    parser.add_argument(
+        "--skip-train", action="store_true", help="Ne pas réentraîner de modèle initial"
+    )
+    parser.add_argument(
+        "--skip-reload", action="store_true", help="Ne pas forcer le rechargement de l'API"
+    )
     args = parser.parse_args()
 
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+    )
     run_full_reset(retrain_baseline=not args.skip_train, hot_reload=not args.skip_reload)
 
 

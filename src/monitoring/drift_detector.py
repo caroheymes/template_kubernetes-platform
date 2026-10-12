@@ -2,7 +2,6 @@
 drift_detector.py — Détection de dérive statistique de données (Data Drift) et de concept (Concept Drift)
 """
 
-import json
 import logging
 from datetime import datetime, timezone
 from typing import Any
@@ -39,7 +38,11 @@ class StatisticalDriftDetector:
         features: list[str] | None = None,
     ) -> dict[str, Any]:
         """Exécute un test de Kolmogorov-Smirnov (KS-test) sur chaque variable numérique (Covariate Shift)."""
-        cols = features or [c for c in reference_data.columns if c in current_data.columns and c not in ["actual", "prediction"]]
+        cols = features or [
+            c
+            for c in reference_data.columns
+            if c in current_data.columns and c not in ["actual", "prediction"]
+        ]
         drifted_features = []
         feature_metrics = {}
 
@@ -92,13 +95,19 @@ class StatisticalDriftDetector:
             or pred_col not in reference_data.columns
             or pred_col not in current_data.columns
         ):
-            return {"concept_drifted": False, "reason": "Colonnes de vérité terrain ou de prédiction absentes"}
+            return {
+                "concept_drifted": False,
+                "reason": "Colonnes de vérité terrain ou de prédiction absentes",
+            }
 
         ref_clean = reference_data[[actual_col, pred_col]].dropna()
         curr_clean = current_data[[actual_col, pred_col]].dropna()
 
         if len(ref_clean) < 2 or len(curr_clean) < 2:
-            return {"concept_drifted": False, "reason": "Données insuffisantes après suppression des valeurs manquantes"}
+            return {
+                "concept_drifted": False,
+                "reason": "Données insuffisantes après suppression des valeurs manquantes",
+            }
 
         ref_residuals = np.abs(ref_clean[actual_col] - ref_clean[pred_col])
         curr_residuals = np.abs(curr_clean[actual_col] - curr_clean[pred_col])
@@ -112,7 +121,7 @@ class StatisticalDriftDetector:
         try:
             stat, p_value = mannwhitneyu(curr_residuals, ref_residuals, alternative="greater")
         except Exception:
-            stat, p_value = 0.0, 1.0
+            _stat, p_value = 0.0, 1.0
 
         is_concept_drifted = bool(
             (rmse_degradation_ratio >= self.concept_drift_ratio_threshold)
@@ -127,7 +136,6 @@ class StatisticalDriftDetector:
             "mannwhitney_p_value": round(float(p_value), 5),
         }
 
-
     def calculate_drift(
         self,
         reference_data: pd.DataFrame,
@@ -138,7 +146,9 @@ class StatisticalDriftDetector:
     ) -> dict[str, Any]:
         """Analyse complète combinant Data Drift et Concept Drift avec déclenchement d'alerte unifié."""
         data_drift_report = self.calculate_data_drift(reference_data, current_data, features)
-        concept_drift_report = self.calculate_concept_drift(reference_data, current_data, actual_col, pred_col)
+        concept_drift_report = self.calculate_concept_drift(
+            reference_data, current_data, actual_col, pred_col
+        )
 
         has_data_drift = data_drift_report["dataset_drifted"]
         has_concept_drift = concept_drift_report.get("concept_drifted", False)
@@ -193,22 +203,26 @@ class StatisticalDriftDetector:
             dispatched = False
             try:
                 import requests
+
                 from ..common.config import app_settings, webhook_settings
 
                 endpoint = f"http://{app_settings.serving_host}:{app_settings.serving_port}/webhooks/retrain"
                 headers = {"X-Webhook-Token": webhook_settings.secret_token}
-                resp = requests.post(endpoint, json=webhook_req.model_dump(), headers=headers, timeout=5)
+                resp = requests.post(
+                    endpoint, json=webhook_req.model_dump(), headers=headers, timeout=5
+                )
                 if resp.status_code == 200:
                     dispatched = True
                     logger.info(f"Webhook HTTP envoyé avec succès vers {endpoint}.")
             except Exception as e:
-                logger.debug(f"Service serving HTTP non joignable ({e}), passage en mode in-memory.")
+                logger.debug(
+                    f"Service serving HTTP non joignable ({e}), passage en mode in-memory."
+                )
 
             if not dispatched:
                 webhook_manager.handle_incoming_event(webhook_req)
 
         return full_report
-
 
 
 drift_detector = StatisticalDriftDetector()

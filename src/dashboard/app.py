@@ -3,6 +3,7 @@ app.py — Point d'entrée principal du Dashboard Streamlit Multi-Pages
 """
 
 import os
+
 import requests
 import streamlit as st
 
@@ -60,20 +61,20 @@ st.subheader("📑 Modules de la Plateforme")
 c1, c2 = st.columns(2)
 with c1:
     st.info("""
-    **1. App (Inférence Directe)**  
+    **1. App (Inférence Directe)**
     Formulaire dynamique pour simuler des prédictions, tester l'API FastAPI et visualiser la latence en temps réel.
     """)
     st.info("""
-    **2. XAI (Explicabilité Shapash)**  
+    **2. XAI (Explicabilité Shapash)**
     Visualisation locale des contributions de features (Waterfall plot) et importance globale des variables du modèle.
     """)
 
 with c2:
     st.success("""
-    **3. Analytics (Marts dbt)**  
+    **3. Analytics (Marts dbt)**
     Tableaux de bord opérationnels branchés directement sur les tables dbt de PostgreSQL (`mart_inference_kpis`, distribution).
     """)
     st.success("""
-    **4. Webhooks (Alertes & Triggers)**  
+    **4. Webhooks (Alertes & Triggers)**
     Surveillance des événements de dérive statistique (Evidently) et déclenchement de réentraînement automatisé.
     """)

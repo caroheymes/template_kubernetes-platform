@@ -78,7 +78,6 @@ class MLflowTracker:
             logger.warning(f"Échec de l'enregistrement MLflow ({e}). Mode dégradé local.")
             return "local-mock-run-id"
 
-
     def set_model_alias(self, version: str, alias: str) -> None:
         """Attribue un alias (ex: 'champion', 'challenger') à une version du modèle."""
         self._ensure_client()
@@ -112,7 +111,6 @@ class MLflowTracker:
                 return None
         return None
 
-
     def get_latest_model_version(self, model_name: str | None = None) -> str:
         """Récupère la dernière version numérique enregistrée pour le modèle."""
         name = model_name or mlflow_settings.model_name
@@ -128,4 +126,3 @@ class MLflowTracker:
 
 
 mlflow_tracker = MLflowTracker()
-

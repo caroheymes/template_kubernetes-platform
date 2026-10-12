@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 from sqlalchemy import text
 
-from ..common.config import db_settings, mlflow_settings
+from ..common.config import mlflow_settings
 from ..common.db import get_engine
 from .schemas import PredictionRequest, PredictionResponse
 
@@ -45,9 +45,13 @@ class XGBoostPredictor:
             self._model = None
 
         is_reachable = True
-        if "localhost" in mlflow_settings.tracking_uri or "127.0.0.1" in mlflow_settings.tracking_uri:
+        if (
+            "localhost" in mlflow_settings.tracking_uri
+            or "127.0.0.1" in mlflow_settings.tracking_uri
+        ):
             import socket
             import urllib.parse
+
             parsed = urllib.parse.urlparse(mlflow_settings.tracking_uri)
             port = parsed.port or 5000
             host = parsed.hostname or "127.0.0.1"
@@ -70,9 +74,10 @@ class XGBoostPredictor:
             self._version = mlflow_settings.model_alias
             logger.info(f"Modèle Champion chargé depuis MLflow : {model_uri}")
         except Exception as e:
-            logger.warning(f"Impossible de charger depuis MLflow ({e}), initialisation du modèle de bootstrap.")
+            logger.warning(
+                f"Impossible de charger depuis MLflow ({e}), initialisation du modèle de bootstrap."
+            )
             self._initialize_bootstrap_model()
-
 
     def _initialize_bootstrap_model(self) -> None:
         """Génère un modèle XGBoost synthétique minimal pour permettre l'amorçage sans MLflow."""

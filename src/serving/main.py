@@ -28,7 +28,9 @@ from .webhooks import webhook_manager
 
 # Métriques Prometheus
 PREDICTION_COUNTER = Counter("mlops_predictions_total", "Nombre total de prédictions servies")
-PREDICTION_LATENCY = Histogram("mlops_prediction_latency_seconds", "Latence d'inférence en secondes")
+PREDICTION_LATENCY = Histogram(
+    "mlops_prediction_latency_seconds", "Latence d'inférence en secondes"
+)
 
 
 @asynccontextmanager
@@ -53,7 +55,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 
 
 def verify_webhook_header(x_webhook_secret: str | None = Header(None)) -> None:
@@ -101,7 +102,6 @@ def health_ready():
         model_loaded=predictor.is_ready,
         database_connected=db_ok,
     )
-
 
 
 @app.post("/predict", response_model=PredictionResponse, tags=["Inference"])
@@ -163,7 +163,6 @@ def explain_prediction(req: PredictionRequest):
 def trigger_retrain(event: WebhookTriggerRequest):
     """Webhook sécurisé déclenchant un réentraînement suite à une dérive ou arrivée de données."""
     return webhook_manager.handle_incoming_event(event)
-
 
 
 @app.get("/metrics", tags=["Observability"])

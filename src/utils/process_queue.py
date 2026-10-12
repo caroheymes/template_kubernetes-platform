@@ -31,12 +31,16 @@ def process_queue_files(
     Parcourt le dossier queue_dir, convertit chaque fichier CSV en lots de prédictions,
     appelle l'API FastAPI et nettoie les fichiers validés.
     """
-    endpoint = api_url or f"http://{app_settings.serving_host}:{app_settings.serving_port}/predict/batch"
+    endpoint = (
+        api_url or f"http://{app_settings.serving_host}:{app_settings.serving_port}/predict/batch"
+    )
     os.makedirs(queue_dir, exist_ok=True)
     pattern = os.path.join(queue_dir, "*.csv")
     files = sorted(glob.glob(pattern))
 
-    logger.info(f"Traitement de la file d'attente : {len(files)} fichier(s) détecté(s) dans {queue_dir}")
+    logger.info(
+        f"Traitement de la file d'attente : {len(files)} fichier(s) détecté(s) dans {queue_dir}"
+    )
 
     processed_count = 0
     total_records = 0
@@ -54,7 +58,7 @@ def process_queue_files(
             records = df.to_dict(orient="records")
             chunk_size = 500
             file_success = True
-            
+
             for i in range(0, len(records), chunk_size):
                 chunk = records[i : i + chunk_size]
                 payload = {"items": [{"features": rec} for rec in chunk]}
@@ -69,7 +73,9 @@ def process_queue_files(
                     file_success = False
                     err_msg = f"HTTP {res.status_code}: {res.text[:200]}"
                     logger.error(f"[{basename}] ❌ Échec sur lot {i // chunk_size + 1} : {err_msg}")
-                    errors.append({"file": basename, "chunk": i // chunk_size + 1, "error": err_msg})
+                    errors.append(
+                        {"file": basename, "chunk": i // chunk_size + 1, "error": err_msg}
+                    )
                     break
 
             if file_success:
@@ -90,7 +96,9 @@ def process_queue_files(
         "errors_count": len(errors),
         "errors": errors,
     }
-    logger.info(f"Bilan queue : {processed_count}/{len(files)} traités ({total_records} inférences).")
+    logger.info(
+        f"Bilan queue : {processed_count}/{len(files)} traités ({total_records} inférences)."
+    )
     return result
 
 
@@ -98,15 +106,20 @@ def process_queue_files(
 process_incoming_queue = process_queue_files
 
 
-
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Worker d'ingestion et d'inférence en lot via file d'attente.")
+    parser = argparse.ArgumentParser(
+        description="Worker d'ingestion et d'inférence en lot via file d'attente."
+    )
     parser.add_argument("--dir", default="data/queue", help="Répertoire de la file d'attente")
     parser.add_argument("--url", default=None, help="URL de l'endpoint FastAPI /predict/batch")
-    parser.add_argument("--keep", action="store_true", help="Conserver les fichiers après traitement")
+    parser.add_argument(
+        "--keep", action="store_true", help="Conserver les fichiers après traitement"
+    )
     args = parser.parse_args()
 
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+    )
     process_queue_files(queue_dir=args.dir, api_url=args.url, delete_on_success=not args.keep)
 
 

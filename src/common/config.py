@@ -20,7 +20,9 @@ class DatabaseSettings(BaseSettings):
         return f"postgresql+psycopg2://{self.user}:{self.password}@{self.host}:{self.port}/{self.db_name}"
 
     def get_url_for_db(self, db_name: str) -> str:
-        return f"postgresql+psycopg2://{self.user}:{self.password}@{self.host}:{self.port}/{db_name}"
+        return (
+            f"postgresql+psycopg2://{self.user}:{self.password}@{self.host}:{self.port}/{db_name}"
+        )
 
 
 class StorageSettings(BaseSettings):

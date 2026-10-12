@@ -53,7 +53,7 @@ class ShapashExplainerManager:
 
     def explain_single_prediction(self, features: dict[str, float]) -> dict[str, Any]:
         """Génère l'explication locale d'une prédiction particulière (waterfall plot)."""
-        df = pd.DataFrame([features])
+        pd.DataFrame([features])
         contributions = {}
         for k, v in features.items():
             contributions[k] = round(v * 0.15 - 0.2, 3)

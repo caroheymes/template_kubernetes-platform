@@ -41,7 +41,9 @@ def run_closed_loop_retraining(
 
     # 3. Évaluation Champion vs Challenger & Auto-promotion
     logger.info("Étape 3/4 : Évaluation et décision d'arbitrage Champion vs Challenger...")
-    candidate_version = mlflow_tracker.get_latest_model_version(model_name=mlflow_settings.model_name)
+    candidate_version = mlflow_tracker.get_latest_model_version(
+        model_name=mlflow_settings.model_name
+    )
     is_promoted = evaluate_and_promote(
         challenger_rmse=challenger_rmse,
         challenger_version=candidate_version,
@@ -54,7 +56,6 @@ def run_closed_loop_retraining(
         predictor.load_model(force=True)
     else:
         logger.info("Étape 4/4 : Le Champion en titre est maintenu en production.")
-
 
     pipeline_result = {
         "status": "completed",
@@ -71,6 +72,7 @@ def run_closed_loop_retraining(
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+    )
     run_closed_loop_retraining(use_ray=False, n_trials=5)
-

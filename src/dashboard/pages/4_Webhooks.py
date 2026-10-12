@@ -3,6 +3,7 @@
 """
 
 import os
+
 import pandas as pd
 import requests
 import streamlit as st
@@ -14,7 +15,9 @@ from src.common.db import get_engine
 st.set_page_config(page_title="Webhooks — Supervision & Alertes", page_icon="🔔", layout="wide")
 
 st.title("🔔 Webhooks — Supervision des Événements & Déclencheurs")
-st.markdown("Gestion des flux webhooks entrants (alertes de dérive) et sortants (notifications Slack/Teams).")
+st.markdown(
+    "Gestion des flux webhooks entrants (alertes de dérive) et sortants (notifications Slack/Teams)."
+)
 
 API_BASE_URL = os.getenv("SERVING_API_URL", "http://localhost:8000").rstrip("/")
 API_WEBHOOK_URL = f"{API_BASE_URL}/webhooks/trigger-retrain"
@@ -23,8 +26,10 @@ col1, col2 = st.columns([1, 1])
 
 with col1:
     st.subheader("1. Déclenchement Manuel de Réentraînement")
-    st.info("Simulez un webhook entrant d'alerte de dérive statistique pour forcer le réentraînement du modèle.")
-    
+    st.info(
+        "Simulez un webhook entrant d'alerte de dérive statistique pour forcer le réentraînement du modèle."
+    )
+
     drift_score = st.slider("Score de Dérive Simulé", 0.0, 1.0, 0.42, step=0.02)
     reason = st.selectbox(
         "Motif du déclenchement",
@@ -34,10 +39,12 @@ with col1:
             "dual_drift_detected",
             "new_batch_ingested",
             "manual_audit_requested",
-        ]
+        ],
     )
-    
-    if st.button("🚨 Émettre le Webhook de Réentraînement", type="primary", use_container_width=True):
+
+    if st.button(
+        "🚨 Émettre le Webhook de Réentraînement", type="primary", use_container_width=True
+    ):
         payload = {
             "source": "streamlit-webhooks-ui",
             "event_type": "drift_alert",
@@ -86,18 +93,25 @@ def load_webhook_logs() -> pd.DataFrame:
         with engine.connect() as conn:
             return pd.read_sql(query, con=conn)
     except Exception:
-        return pd.DataFrame({
-            "id": [101, 102, 103, 104],
-            "event_timestamp": [
-                "2026-10-12 16:30:00+00",
-                "2026-10-12 16:45:00+00",
-                "2026-10-12 17:00:00+00",
-                "2026-10-12 17:15:00+00",
-            ],
-            "event_type": ["model_promoted", "drift_alert", "dbt_run_success", "retrain_started"],
-            "source": ["mlflow-registry", "evidently-worker", "dbt-cronjob", "fastapi-webhook"],
-            "status": ["delivered", "retraining_triggered", "completed", "in_progress"],
-        })
+        return pd.DataFrame(
+            {
+                "id": [101, 102, 103, 104],
+                "event_timestamp": [
+                    "2026-10-12 16:30:00+00",
+                    "2026-10-12 16:45:00+00",
+                    "2026-10-12 17:00:00+00",
+                    "2026-10-12 17:15:00+00",
+                ],
+                "event_type": [
+                    "model_promoted",
+                    "drift_alert",
+                    "dbt_run_success",
+                    "retrain_started",
+                ],
+                "source": ["mlflow-registry", "evidently-worker", "dbt-cronjob", "fastapi-webhook"],
+                "status": ["delivered", "retraining_triggered", "completed", "in_progress"],
+            }
+        )
 
 
 df_logs = load_webhook_logs()

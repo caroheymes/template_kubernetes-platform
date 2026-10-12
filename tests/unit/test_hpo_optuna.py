@@ -1,7 +1,5 @@
 """Tests unitaires pour l'optimisation bayésienne d'hyperparamètres Optuna et Ray."""
 
-import numpy as np
-
 from src.training.hpo_optuna import run_hpo_study
 
 

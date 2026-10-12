@@ -5,13 +5,11 @@ Inspecte le Model Registry MLflow, les métriques en production, les tables Post
 
 import logging
 import os
-import sys
 from typing import Any
 
-import pandas as pd
 from sqlalchemy import text
 
-from ..common.config import app_settings, db_settings, mlflow_settings
+from ..common.config import app_settings, mlflow_settings
 from ..common.db import get_engine
 
 logger = logging.getLogger("k8s_mlops.utils.check_status")
@@ -26,7 +24,9 @@ def check_platform_status() -> dict[str, Any]:
     }
 
     print("\n" + "=" * 70)
-    print(f"📊 DIAGNOSTIC SYSTÈME — {app_settings.app_name.upper()} (Env: {app_settings.environment})")
+    print(
+        f"📊 DIAGNOSTIC SYSTÈME — {app_settings.app_name.upper()} (Env: {app_settings.environment})"
+    )
     print("=" * 70)
 
     # 1. Vérification MLflow Model Registry
@@ -56,10 +56,14 @@ def check_platform_status() -> dict[str, Any]:
                     "status": mv.status,
                 }
                 version_details.append(v_info)
-                print(f"    - v{mv.version:>2} | Run: {mv.run_id[:8]} | RMSE: {metrics.get('rmse', 'N/A')} | R2: {metrics.get('r2', 'N/A')}")
+                print(
+                    f"    - v{mv.version:>2} | Run: {mv.run_id[:8]} | RMSE: {metrics.get('rmse', 'N/A')} | R2: {metrics.get('r2', 'N/A')}"
+                )
             status_report["mlflow"]["recent_versions"] = version_details
         except Exception as e:
-            print(f"  ⚠️ Modèle '{mlflow_settings.model_name}' non trouvé ou MLflow inaccessible : {e}")
+            print(
+                f"  ⚠️ Modèle '{mlflow_settings.model_name}' non trouvé ou MLflow inaccessible : {e}"
+            )
             status_report["mlflow"]["status"] = "offline_or_not_found"
     except Exception as e:
         print(f"  ⚠️ Module MLflow non disponible : {e}")
@@ -70,6 +74,7 @@ def check_platform_status() -> dict[str, Any]:
     status_report["fastapi"] = {}
     try:
         import requests
+
         serving_url = f"http://{app_settings.serving_host}:{app_settings.serving_port}/health/live"
         resp = requests.get(serving_url, timeout=2)
         if resp.status_code == 200:
@@ -93,8 +98,12 @@ def check_platform_status() -> dict[str, Any]:
                 status_report["database"][f"{db_name}_status"] = "connected"
 
                 if db_name == "mlops":
-                    pred_count = conn.execute(text("SELECT COUNT(*) FROM predictions.fact_predictions;")).scalar()
-                    wh_count = conn.execute(text("SELECT COUNT(*) FROM webhooks.event_logs;")).scalar()
+                    pred_count = conn.execute(
+                        text("SELECT COUNT(*) FROM predictions.fact_predictions;")
+                    ).scalar()
+                    wh_count = conn.execute(
+                        text("SELECT COUNT(*) FROM webhooks.event_logs;")
+                    ).scalar()
                     print(f"    - Prédictions historisées : {pred_count}")
                     print(f"    - Événements Webhooks     : {wh_count}")
                     status_report["database"]["predictions_count"] = pred_count
@@ -111,7 +120,7 @@ def check_platform_status() -> dict[str, Any]:
         print(f"  • Fichiers en attente dans data/queue/ : {len(files)}")
         status_report["queue"]["pending_files"] = len(files)
     else:
-        print(f"  • Répertoire data/queue/ inexistant (aucun batch en attente).")
+        print("  • Répertoire data/queue/ inexistant (aucun batch en attente).")
         status_report["queue"]["pending_files"] = 0
 
     print("=" * 70 + "\n")

@@ -7,14 +7,12 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any
 
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sqlalchemy import text
 
-from ..common.config import db_settings
 from ..common.db import get_engine
 
 logger = logging.getLogger("k8s_mlops.utils.data_loader")
@@ -41,7 +39,9 @@ def load_or_generate_dataset(
             engine = get_engine("mlops")
             with engine.connect() as conn:
                 df_sql = pd.read_sql(
-                    text("SELECT features_payload, predicted_value FROM predictions.fact_predictions LIMIT :n;"),
+                    text(
+                        "SELECT features_payload, predicted_value FROM predictions.fact_predictions LIMIT :n;"
+                    ),
                     conn,
                     params={"n": n_samples},
                 )
@@ -53,7 +53,10 @@ def load_or_generate_dataset(
                             extracted[col] = 0.0
                     X = extracted[feature_names]
                     y = df_sql["predicted_value"]
-                    return (*train_test_split(X, y, test_size=test_size, random_state=random_state), feature_names)
+                    return (
+                        *train_test_split(X, y, test_size=test_size, random_state=random_state),
+                        feature_names,
+                    )
         except Exception as e:
             logger.warning(f"Échec de chargement PostgreSQL ({e}), bascule sur le mode standard.")
 
@@ -65,7 +68,10 @@ def load_or_generate_dataset(
         target_col = "target" if "target" in df.columns else df.columns[-1]
         X = df[available_cols]
         y = df[target_col]
-        return (*train_test_split(X, y, test_size=test_size, random_state=random_state), available_cols)
+        return (
+            *train_test_split(X, y, test_size=test_size, random_state=random_state),
+            available_cols,
+        )
 
     # 3. Génération synthétique déterministe (fallback par défaut)
     logger.info(f"Génération d'un dataset synthétique ({n_samples} échantillons)...")

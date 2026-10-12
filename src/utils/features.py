@@ -68,10 +68,17 @@ def scale_numerical_features(
     return df_out, {**(stats or {}), **computed_stats}
 
 
-def impute_missing_features(df: pd.DataFrame, defaults: dict[str, float] | None = None) -> pd.DataFrame:
+def impute_missing_features(
+    df: pd.DataFrame, defaults: dict[str, float] | None = None
+) -> pd.DataFrame:
     """Remplace les valeurs nulles ou manquantes par les valeurs par défaut spécifiées."""
     df_out = df.copy()
-    default_vals = defaults or {"feature_1": 0.0, "feature_2": 0.0, "feature_3": 0.0, "feature_4": 0.0}
+    default_vals = defaults or {
+        "feature_1": 0.0,
+        "feature_2": 0.0,
+        "feature_3": 0.0,
+        "feature_4": 0.0,
+    }
     for col, val in default_vals.items():
         if col in df_out.columns:
             df_out[col] = df_out[col].fillna(val)

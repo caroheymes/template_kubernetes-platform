@@ -4,6 +4,7 @@
 
 import os
 import time
+
 import requests
 import streamlit as st
 
@@ -48,7 +49,7 @@ with col2:
             if resp.status_code == 200:
                 result = resp.json()
                 st.success("✅ Inférence réussie")
-                
+
                 m1, m2, m3 = st.columns(3)
                 with m1:
                     st.metric("Score Prédit", f"{result['prediction']:.4f}")
@@ -62,6 +63,8 @@ with col2:
                 st.error(f"Erreur API ({resp.status_code}) : {resp.text}")
         except Exception as e:
             st.error(f"Impossible de joindre le service FastAPI : {e}")
-            st.info("Vérifiez que le port-forward est actif : `kubectl port-forward svc/k8s-mlops-serving 8000:8000 -n k8s-mlops`")
+            st.info(
+                "Vérifiez que le port-forward est actif : `kubectl port-forward svc/k8s-mlops-serving 8000:8000 -n k8s-mlops`"
+            )
     else:
         st.info("Ajustez les curseurs et cliquez sur **Lancer l'Inférence** pour tester l'API.")

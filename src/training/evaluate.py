@@ -4,7 +4,6 @@ evaluate.py — Évaluation comparative Champion vs Challenger et auto-promotion
 
 import logging
 
-from ..common.config import mlflow_settings
 from ..tracking.mlflow_client import mlflow_tracker
 
 logger = logging.getLogger("k8s_mlops.evaluate")
@@ -29,16 +28,21 @@ def evaluate_and_promote(
 
     # Calcul de l'amélioration relative en pourcentage (sécurisé contre la division par zéro)
     improvement_pct = ((champion_rmse - challenger_rmse) / max(champion_rmse, 1e-6)) * 100.0
-    logger.info(f"Gain relatif : {improvement_pct:.2f}% (Seuil requis : {threshold_improvement_pct}%)")
-
+    logger.info(
+        f"Gain relatif : {improvement_pct:.2f}% (Seuil requis : {threshold_improvement_pct}%)"
+    )
 
     if improvement_pct >= threshold_improvement_pct:
-        logger.info(f"🏆 Challenger accepté ! Promotion de la version {challenger_version} au statut Champion.")
+        logger.info(
+            f"🏆 Challenger accepté ! Promotion de la version {challenger_version} au statut Champion."
+        )
         # Historisation de l'ancien champion en rollback
         mlflow_tracker.set_model_alias(champion_meta["version"], "rollback")
         mlflow_tracker.set_model_alias(challenger_version, "champion")
         return True
     else:
-        logger.info(f"❌ Gain insuffisant ({improvement_pct:.2f}% < {threshold_improvement_pct}%). Challenger rejeté.")
+        logger.info(
+            f"❌ Gain insuffisant ({improvement_pct:.2f}% < {threshold_improvement_pct}%). Challenger rejeté."
+        )
         mlflow_tracker.set_model_alias(challenger_version, "challenger-rejected")
         return False

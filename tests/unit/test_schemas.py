@@ -19,7 +19,9 @@ from src.serving.schemas import (
 
 def test_prediction_request_valid():
     """Vérifie la validation conforme d'une requête de prédiction."""
-    payload = {"features": {"feature_1": 1.5, "feature_2": -0.4, "feature_3": 100.0, "feature_4": 2.1}}
+    payload = {
+        "features": {"feature_1": 1.5, "feature_2": -0.4, "feature_3": 100.0, "feature_4": 2.1}
+    }
     req = PredictionRequest(**payload)
     assert req.features["feature_1"] == 1.5
     assert len(req.features) == 4

@@ -18,7 +18,9 @@ class HealthResponse(BaseModel):
 class PredictionRequest(BaseModel):
     features: dict[str, float] = Field(
         ...,
-        json_schema_extra={"example": {"feature_1": 14.2, "feature_2": 0.75, "feature_3": 110.0, "feature_4": 3.2}},
+        json_schema_extra={
+            "example": {"feature_1": 14.2, "feature_2": 0.75, "feature_3": 110.0, "feature_4": 3.2}
+        },
         description="Dictionnaire clé-valeur des features numériques pour l'inférence XGBoost",
     )
 

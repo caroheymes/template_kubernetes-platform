@@ -32,15 +32,12 @@ def test_health_ready_endpoint():
         assert data["model_loaded"] is True
         assert data["database_connected"] is True
 
-
     # Cas 2 : Base de données inaccessible -> 503 Service Unavailable
     with patch("src.serving.main.get_engine", side_effect=Exception("Database down")):
         response = client.get("/health/ready")
         assert response.status_code == 503
         data = response.json()
         assert data["database_connected"] is False
-
-
 
 
 def test_metrics_endpoint():

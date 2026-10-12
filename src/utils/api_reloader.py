@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any
 
 import requests
 
@@ -39,7 +38,7 @@ def reload_serving_api(custom_url: str | None = None, timeout: int = 5) -> bool:
             candidate_urls.append(u)
 
     logger.info("Déclenchement du rechargement à chaud du modèle...")
-    
+
     # Rechargement direct en mémoire du singleton predictor
     try:
         predictor.load_model(force=True)

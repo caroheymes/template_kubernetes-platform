@@ -41,16 +41,20 @@ def test_concept_drift_detection():
     np.random.seed(42)
 
     # Référence : résidus faibles (RMSE ~ 0.2)
-    ref = pd.DataFrame({
-        "actual": np.linspace(10, 20, 100),
-        "prediction": np.linspace(10, 20, 100) + np.random.randn(100) * 0.2,
-    })
+    ref = pd.DataFrame(
+        {
+            "actual": np.linspace(10, 20, 100),
+            "prediction": np.linspace(10, 20, 100) + np.random.randn(100) * 0.2,
+        }
+    )
 
     # Données de production avec dérive de concept : fortes erreurs résiduelles (RMSE ~ 2.0)
-    curr = pd.DataFrame({
-        "actual": np.linspace(10, 20, 100),
-        "prediction": np.linspace(10, 20, 100) + np.random.randn(100) * 2.0,
-    })
+    curr = pd.DataFrame(
+        {
+            "actual": np.linspace(10, 20, 100),
+            "prediction": np.linspace(10, 20, 100) + np.random.randn(100) * 2.0,
+        }
+    )
 
     res = detector.calculate_concept_drift(ref, curr)
     assert res["concept_drifted"]
@@ -62,16 +66,20 @@ def test_combined_full_drift_assessment():
     detector = StatisticalDriftDetector()
     np.random.seed(42)
 
-    ref = pd.DataFrame({
-        "f1": np.random.randn(100),
-        "actual": np.ones(100),
-        "prediction": np.ones(100),
-    })
-    curr = pd.DataFrame({
-        "f1": np.random.randn(100) + 3.0,  # Data drift
-        "actual": np.ones(100),
-        "prediction": np.ones(100) + np.random.randn(100) * 2.0,  # Concept drift
-    })
+    ref = pd.DataFrame(
+        {
+            "f1": np.random.randn(100),
+            "actual": np.ones(100),
+            "prediction": np.ones(100),
+        }
+    )
+    curr = pd.DataFrame(
+        {
+            "f1": np.random.randn(100) + 3.0,  # Data drift
+            "actual": np.ones(100),
+            "prediction": np.ones(100) + np.random.randn(100) * 2.0,  # Concept drift
+        }
+    )
 
     res = detector.calculate_drift(ref, curr)
     assert res["requires_retraining"]

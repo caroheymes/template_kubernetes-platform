@@ -31,7 +31,9 @@ class WebhookManager:
         if not token:
             return False
         try:
-            return hmac.compare_digest(token.encode("utf-8"), webhook_settings.secret_token.encode("utf-8"))
+            return hmac.compare_digest(
+                token.encode("utf-8"), webhook_settings.secret_token.encode("utf-8")
+            )
         except Exception:
             return False
 
@@ -58,7 +60,9 @@ class WebhookManager:
         # Déclenchement asynchrone protégé par verrou de concurrence
         if action == "retraining_triggered":
             if not self._retrain_lock.acquire(blocking=False):
-                logger.warning("Un réentraînement est déjà en cours d'exécution. Requête ignorée pour éviter la concurrence.")
+                logger.warning(
+                    "Un réentraînement est déjà en cours d'exécution. Requête ignorée pour éviter la concurrence."
+                )
                 return WebhookResponse(
                     status="busy",
                     action_taken="skipped_already_running",
@@ -74,11 +78,14 @@ class WebhookManager:
 
     def _trigger_async_retraining(self, event_id: int | None, details: dict[str, Any]) -> None:
         """Lance l'orchestration du réentraînement en arrière-plan."""
+
         def _run_worker():
             try:
                 from ..training.retrain_pipeline import run_closed_loop_retraining
 
-                logger.info(f"Démarrage asynchrone de la boucle de réentraînement (Event ID: {event_id})...")
+                logger.info(
+                    f"Démarrage asynchrone de la boucle de réentraînement (Event ID: {event_id})..."
+                )
                 result = run_closed_loop_retraining(event_details=details, use_ray=True)
                 self._update_event_status(event_id, "retraining_completed", result)
                 self.dispatch_notification(
@@ -96,8 +103,9 @@ class WebhookManager:
         worker_thread = threading.Thread(target=_run_worker, daemon=True)
         worker_thread.start()
 
-
-    def dispatch_notification(self, title: str, message: str, payload: dict[str, Any] | None = None) -> bool:
+    def dispatch_notification(
+        self, title: str, message: str, payload: dict[str, Any] | None = None
+    ) -> bool:
         """Émet un webhook sortant vers un système de notification (Slack, Teams, Discord)."""
         if not webhook_settings.notification_url:
             logger.info(f"[Notification Simulée] {title} : {message}")
@@ -114,7 +122,9 @@ class WebhookManager:
             logger.error(f"Échec de l'envoi du webhook sortant : {e}")
             return False
 
-    def _log_event(self, event_type: str, source: str, payload: dict[str, Any], status: str) -> int | None:
+    def _log_event(
+        self, event_type: str, source: str, payload: dict[str, Any], status: str
+    ) -> int | None:
         """Enregistre l'événement dans la table webhooks.event_logs."""
         try:
             if not self._engine:
@@ -139,7 +149,9 @@ class WebhookManager:
             logger.debug(f"Échec journalisation webhook en base : {e}")
             return None
 
-    def _update_event_status(self, event_id: int | None, status: str, result_payload: dict[str, Any]) -> None:
+    def _update_event_status(
+        self, event_id: int | None, status: str, result_payload: dict[str, Any]
+    ) -> None:
         """Met à jour le statut et le résultat de l'événement dans webhooks.event_logs."""
         if not event_id:
             return

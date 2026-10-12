@@ -1,6 +1,7 @@
 """Tests unitaires pour le composant d'explicabilité XAI Shapash."""
 
 from unittest.mock import patch
+
 import pandas as pd
 
 from src.xai.explainer import ShapashExplainerManager

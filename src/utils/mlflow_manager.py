@@ -48,6 +48,7 @@ class MLflowQualityGate:
         if "localhost" in self.tracking_uri or "127.0.0.1" in self.tracking_uri:
             import socket
             import urllib.parse
+
             parsed = urllib.parse.urlparse(self.tracking_uri)
             port = parsed.port or 5000
             host = parsed.hostname or "127.0.0.1"
@@ -67,7 +68,6 @@ class MLflowQualityGate:
                 self.client = None
         else:
             logger.debug("Serveur MLflow local non joignable, initialisation du client ignorée.")
-
 
     def get_active_champion_info(self) -> dict[str, Any] | None:
         """Interroge le Model Registry pour extraire les métadonnées et le score du Champion actif."""
@@ -149,7 +149,9 @@ class MLflowQualityGate:
             return True, "v-offline"
 
         try:
-            with mlflow.start_run(run_name=f"Run_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}") as run:
+            with mlflow.start_run(
+                run_name=f"Run_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
+            ):
                 if params:
                     mlflow.log_params(params)
                 mlflow.log_metrics(metrics)
@@ -158,7 +160,10 @@ class MLflowQualityGate:
 
                 if confusion_matrix_dict:
                     import tempfile
-                    with tempfile.NamedTemporaryFile("w", suffix="_cm.json", delete=False, encoding="utf-8") as f:
+
+                    with tempfile.NamedTemporaryFile(
+                        "w", suffix="_cm.json", delete=False, encoding="utf-8"
+                    ) as f:
                         json.dump(confusion_matrix_dict, f, indent=2)
                         temp_cm_path = f.name
                     try:
@@ -170,6 +175,7 @@ class MLflowQualityGate:
                 # Priorité au flavor natif mlflow.xgboost pour XGBoostPredictor
                 try:
                     import xgboost as xgb
+
                     if isinstance(model, (xgb.XGBModel, xgb.Booster, xgb.core.Booster)):
                         mlflow.xgboost.log_model(
                             xgb_model=model,
@@ -190,7 +196,9 @@ class MLflowQualityGate:
                     )
 
                 versions = self.client.search_model_versions(f"name='{self.model_name}'")
-                target_version = str(max(versions, key=lambda v: int(v.version)).version) if versions else "1"
+                target_version = (
+                    str(max(versions, key=lambda v: int(v.version)).version) if versions else "1"
+                )
 
             # Évaluation Quality Gate
             champ_info = self.get_active_champion_info()
@@ -200,10 +208,16 @@ class MLflowQualityGate:
 
             if is_promoted:
                 self.client.set_registered_model_alias(self.model_name, "champion", target_version)
-                logger.info(f"🏆 Modèle v{target_version} promu @champion (Gain: {delta}% sur {self.metric_target}).")
+                logger.info(
+                    f"🏆 Modèle v{target_version} promu @champion (Gain: {delta}% sur {self.metric_target})."
+                )
             else:
-                self.client.set_registered_model_alias(self.model_name, "challenger-rejected", target_version)
-                logger.info(f"⚠️ Modèle v{target_version} rejeté (Gain insuffisant: {delta}% < {self.min_improvement_pct}%).")
+                self.client.set_registered_model_alias(
+                    self.model_name, "challenger-rejected", target_version
+                )
+                logger.info(
+                    f"⚠️ Modèle v{target_version} rejeté (Gain insuffisant: {delta}% < {self.min_improvement_pct}%)."
+                )
 
             return is_promoted, target_version
         except Exception as e:
