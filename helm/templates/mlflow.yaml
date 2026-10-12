@@ -1,0 +1,86 @@
+{{- if .Values.mlflow.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "k8s-mlops.fullname" . }}-mlflow
+  labels:
+    {{- include "k8s-mlops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: tracking
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.mlflow.service.port }}
+      targetPort: 5000
+      name: http
+  selector:
+    {{- include "k8s-mlops.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: tracking
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "k8s-mlops.fullname" . }}-mlflow
+  labels:
+    {{- include "k8s-mlops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: tracking
+spec:
+  replicas: {{ .Values.mlflow.replicas }}
+  selector:
+    matchLabels:
+      {{- include "k8s-mlops.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: tracking
+  template:
+    metadata:
+      labels:
+        {{- include "k8s-mlops.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: tracking
+    spec:
+      containers:
+        - name: mlflow
+          image: "{{ .Values.mlflow.image }}"
+          imagePullPolicy: {{ .Values.mlflow.pullPolicy }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              (python -c "import psycopg2, boto3" 2>/dev/null || pip install --no-cache-dir psycopg2-binary boto3) && \
+              mlflow server \
+                --backend-store-uri $POSTGRES_MLFLOW_URL \
+                --default-artifact-root $DEFAULT_ARTIFACT_ROOT \
+                --host 0.0.0.0 \
+                --port 5000
+          ports:
+            - containerPort: 5000
+              name: http
+          env:
+            - name: POSTGRES_MLFLOW_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "k8s-mlops.fullname" . }}-secrets
+                  key: POSTGRES_MLFLOW_URL
+            - name: DEFAULT_ARTIFACT_ROOT
+              value: {{ .Values.mlflow.artifactRoot | quote }}
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "k8s-mlops.fullname" . }}-secrets
+                  key: AWS_ACCESS_KEY_ID
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "k8s-mlops.fullname" . }}-secrets
+                  key: AWS_SECRET_ACCESS_KEY
+          resources:
+            {{- toYaml .Values.mlflow.resources | nindent 12 }}
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 40
+            periodSeconds: 20
+{{- end }}

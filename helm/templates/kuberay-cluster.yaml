@@ -1,0 +1,51 @@
+{{- if .Values.ray.enabled }}
+apiVersion: ray.io/v1
+kind: RayCluster
+metadata:
+  name: {{ include "k8s-mlops.fullname" . }}-raycluster
+  labels:
+    {{- include "k8s-mlops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: distributed-training
+spec:
+  rayVersion: '2.9.0'
+  headGroupSpec:
+    rayStartParams:
+      dashboard-host: '0.0.0.0'
+    template:
+      spec:
+        containers:
+          - name: ray-head
+            image: {{ .Values.ray.image | quote }}
+            resources:
+              limits:
+                cpu: {{ .Values.ray.head.cpu }}
+                memory: {{ .Values.ray.head.memory }}
+              requests:
+                cpu: {{ .Values.ray.head.cpu }}
+                memory: {{ .Values.ray.head.memory }}
+            ports:
+              - containerPort: 6379
+                name: gcs
+              - containerPort: 8265
+                name: dashboard
+              - containerPort: 10001
+                name: client
+  workerGroupSpecs:
+    - groupName: workergroup
+      replicas: {{ .Values.ray.workers.replicas }}
+      minReplicas: {{ .Values.ray.workers.minReplicas | default 0 }}
+      maxReplicas: {{ .Values.ray.workers.maxReplicas | default 10 }}
+      rayStartParams: {}
+      template:
+        spec:
+          containers:
+            - name: ray-worker
+              image: {{ .Values.ray.image | quote }}
+              resources:
+                limits:
+                  cpu: {{ .Values.ray.workers.cpu }}
+                  memory: {{ .Values.ray.workers.memory }}
+                requests:
+                  cpu: {{ .Values.ray.workers.cpu }}
+                  memory: {{ .Values.ray.workers.memory }}
+{{- end }}

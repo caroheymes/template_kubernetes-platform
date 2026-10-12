@@ -1,0 +1,61 @@
+{{- if .Values.dbtCronJob.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "k8s-mlops.fullname" . }}-dbt-runner
+  labels:
+    {{- include "k8s-mlops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: analytics
+spec:
+  schedule: {{ .Values.dbtCronJob.schedule | quote }}
+  successfulJobsHistoryLimit: {{ .Values.dbtCronJob.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.dbtCronJob.failedJobsHistoryLimit }}
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            {{- include "k8s-mlops.selectorLabels" . | nindent 12 }}
+            app.kubernetes.io/component: analytics
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: dbt
+              image: "{{ .Values.dbtCronJob.image.repository }}:{{ .Values.dbtCronJob.image.tag }}"
+              imagePullPolicy: {{ .Values.dbtCronJob.image.pullPolicy }}
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  echo "[DBT-RUNNER] Starting dbt models execution..." && \
+                  cd /app/dbt && \
+                  dbt run --profiles-dir . --target prod && \
+                  dbt test --profiles-dir . --target prod && \
+                  echo "[DBT-RUNNER] Analytics models updated and verified successfully."
+              envFrom:
+                - configMapRef:
+                    name: {{ include "k8s-mlops.fullname" . }}-config
+              env:
+                - name: POSTGRES_USER
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ include "k8s-mlops.fullname" . }}-secrets
+                      key: POSTGRES_USER
+                - name: POSTGRES_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ include "k8s-mlops.fullname" . }}-secrets
+                      key: POSTGRES_PASSWORD
+                - name: DB_USER
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ include "k8s-mlops.fullname" . }}-secrets
+                      key: POSTGRES_USER
+                - name: DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ include "k8s-mlops.fullname" . }}-secrets
+                      key: POSTGRES_PASSWORD
+              resources:
+                {{- toYaml .Values.dbtCronJob.resources | nindent 16 }}
+{{- end }}

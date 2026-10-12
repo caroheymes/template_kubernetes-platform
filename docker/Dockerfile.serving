@@ -1,0 +1,36 @@
+# ==============================================================================
+# Dockerfile.serving — Microservice FastAPI Inférence & Webhooks
+# ==============================================================================
+FROM python:3.12-slim AS base
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PYTHONPATH=/app \
+    PORT=8000
+
+WORKDIR /app
+
+# Dépendances système pour libpq (PostgreSQL) et curl pour les healthchecks
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq-dev \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Création d'un utilisateur non-root avec home directory (sécurité PSS Restricted)
+RUN groupadd -r mlops && useradd -m -r -g mlops -u 10001 mlops
+
+# Installation des dépendances Python
+COPY requirements.txt .
+RUN pip install --upgrade pip && \
+    pip install -r requirements.txt
+
+# Copie du code source avec propriétaire restreint
+COPY --chown=mlops:mlops src/ /app/src/
+
+USER 10001
+
+EXPOSE 8000
+
+# Lancement de l'API FastAPI avec Uvicorn
+CMD ["uvicorn", "src.serving.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]

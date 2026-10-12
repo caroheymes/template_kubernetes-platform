@@ -1,0 +1,141 @@
+# ==============================================================================
+# values.yaml — Configuration générique pour le déploiement Helm k8s_mlops_platform
+# ==============================================================================
+
+nameOverride: ""
+fullnameOverride: "k8s-mlops"
+
+# PostgreSQL (Isolé en 3 bases : mlops, mlflow, optuna)
+postgres:
+  enabled: true
+  image: "postgres:16-alpine"
+  pullPolicy: "IfNotPresent"
+  service:
+    port: 5432
+  auth:
+    user: "mlops_user"
+    password: "mlops_secure_password"
+    databases:
+      - "mlops"
+      - "mlflow"
+      - "optuna"
+  persistence:
+    enabled: true
+    size: "10Gi"
+    storageClass: ""
+  resources:
+    limits:
+      cpu: "1000m"
+      memory: "1Gi"
+    requests:
+      cpu: "250m"
+      memory: "256Mi"
+
+# MLflow Tracking & Model Registry
+mlflow:
+  enabled: true
+  image: "ghcr.io/mlflow/mlflow:v2.12.1"
+  pullPolicy: "IfNotPresent"
+  replicas: 1
+  service:
+    port: 5000
+  artifactRoot: "s3://models/mlflow"
+  resources:
+    limits:
+      cpu: "1000m"
+      memory: "1Gi"
+    requests:
+      cpu: "250m"
+      memory: "256Mi"
+
+# FastAPI Serving Microservice
+serving:
+  enabled: true
+  image:
+    repository: "mlops-serving"
+    tag: "v1.0.0"
+    pullPolicy: "IfNotPresent"
+  replicas: 2
+  service:
+    port: 8000
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 75
+  webhookToken: "k8s-mlops-super-secure-token"
+  resources:
+    limits:
+      cpu: "1000m"
+      memory: "1Gi"
+    requests:
+      cpu: "200m"
+      memory: "256Mi"
+
+# Streamlit Multi-Page UI
+streamlit:
+  enabled: true
+  image:
+    repository: "mlops-app"
+    tag: "v1.0.0"
+    pullPolicy: "IfNotPresent"
+  replicas: 1
+  service:
+    port: 8503
+    targetPort: 8503
+
+  resources:
+    limits:
+      cpu: "1000m"
+      memory: "1Gi"
+    requests:
+      cpu: "200m"
+      memory: "256Mi"
+
+# CronJob dbt pour l'actualisation des tables Marts
+dbtCronJob:
+  enabled: true
+  schedule: "*/15 * * * *"
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  image:
+    repository: "mlops-app"
+    tag: "v1.0.0"
+    pullPolicy: "IfNotPresent"
+  resources:
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+
+# KubeRay Cluster (Optionnel)
+ray:
+  enabled: false
+  image: "rayproject/ray:2.9.0-py310"
+  head:
+    cpu: "1000m"
+    memory: "2Gi"
+  workers:
+    replicas: 2
+    cpu: "1000m"
+    memory: "2Gi"
+
+# Ingress Controller (Optionnel)
+ingress:
+  enabled: false
+  className: "nginx"
+  annotations: {}
+  hosts:
+    - host: mlops.local
+      paths:
+        - path: /
+          pathType: Prefix
+          service: streamlit
+        - path: /api
+          pathType: Prefix
+          service: serving
+        - path: /mlflow
+          pathType: Prefix
+          service: mlflow

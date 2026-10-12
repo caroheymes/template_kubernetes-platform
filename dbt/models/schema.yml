@@ -1,0 +1,51 @@
+version: 2
+
+sources:
+  - name: mlops_raw
+    database: "{{ env_var('POSTGRES_DB', 'mlops') }}"
+    schema: predictions
+    tables:
+      - name: fact_predictions
+        columns:
+          - name: id
+            tests:
+              - unique
+              - not_null
+          - name: request_id
+            tests:
+              - not_null
+          - name: predicted_value
+            tests:
+              - not_null
+
+models:
+  - name: stg_predictions
+    description: "Nettoyage et extraction unitaire des prédictions d'inférence FastAPI"
+    columns:
+      - name: prediction_id
+        tests:
+          - unique
+          - not_null
+      - name: latency_ms
+        tests:
+          - not_null
+
+  - name: mart_inference_kpis
+    description: "Indicateurs de performance opérationnelle et latences d'inférence"
+    columns:
+      - name: received_date
+        tests:
+          - not_null
+      - name: total_requests
+        tests:
+          - not_null
+
+  - name: mart_prediction_distribution
+    description: "Métriques statistiques et quartiles des scores prédits par XGBoost"
+    columns:
+      - name: received_date
+        tests:
+          - not_null
+      - name: sample_count
+        tests:
+          - not_null

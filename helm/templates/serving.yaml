@@ -1,0 +1,134 @@
+{{- if .Values.serving.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "k8s-mlops.fullname" . }}-serving
+  labels:
+    {{- include "k8s-mlops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: serving
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.serving.service.port }}
+      targetPort: 8000
+      name: http
+  selector:
+    {{- include "k8s-mlops.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: serving
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "k8s-mlops.fullname" . }}-serving
+  labels:
+    {{- include "k8s-mlops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: serving
+spec:
+  {{- if not .Values.serving.autoscaling.enabled }}
+  replicas: {{ .Values.serving.replicas }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "k8s-mlops.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: serving
+  template:
+    metadata:
+      labels:
+        {{- include "k8s-mlops.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: serving
+    spec:
+      containers:
+        - name: serving
+          image: "{{ .Values.serving.image.repository }}:{{ .Values.serving.image.tag }}"
+          imagePullPolicy: {{ .Values.serving.image.pullPolicy }}
+          ports:
+            - containerPort: 8000
+              name: http
+          envFrom:
+            - configMapRef:
+                name: {{ include "k8s-mlops.fullname" . }}-config
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "k8s-mlops.fullname" . }}-secrets
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "k8s-mlops.fullname" . }}-secrets
+                  key: POSTGRES_PASSWORD
+            - name: POSTGRES_MLOPS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "k8s-mlops.fullname" . }}-secrets
+                  key: POSTGRES_MLOPS_URL
+            - name: WEBHOOK_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "k8s-mlops.fullname" . }}-secrets
+                  key: WEBHOOK_TOKEN
+            - name: WEBHOOK_SECRET_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "k8s-mlops.fullname" . }}-secrets
+                  key: WEBHOOK_SECRET_TOKEN
+            - name: S3_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "k8s-mlops.fullname" . }}-secrets
+                  key: S3_ACCESS_KEY
+            - name: S3_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "k8s-mlops.fullname" . }}-secrets
+                  key: S3_SECRET_KEY
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "k8s-mlops.fullname" . }}-secrets
+                  key: AWS_ACCESS_KEY_ID
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "k8s-mlops.fullname" . }}-secrets
+                  key: AWS_SECRET_ACCESS_KEY
+          resources:
+            {{- toYaml .Values.serving.resources | nindent 12 }}
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+{{- if .Values.serving.autoscaling.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "k8s-mlops.fullname" . }}-serving-hpa
+  labels:
+    {{- include "k8s-mlops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: serving
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "k8s-mlops.fullname" . }}-serving
+  minReplicas: {{ .Values.serving.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.serving.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.serving.autoscaling.targetCPUUtilizationPercentage }}
+{{- end }}
+{{- end }}

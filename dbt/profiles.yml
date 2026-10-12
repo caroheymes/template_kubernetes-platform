@@ -1,0 +1,23 @@
+k8s_mlops_platform:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: "{{ env_var('POSTGRES_HOST', 'localhost') }}"
+      user: "{{ env_var('POSTGRES_USER', 'mlops') }}"
+      password: "{{ env_var('POSTGRES_PASSWORD', 'mlops_password') }}"
+      port: "{{ env_var('POSTGRES_PORT', '5432') | int }}"
+      dbname: "{{ env_var('POSTGRES_DB', 'mlops') }}"
+      schema: analytics
+      threads: 4
+      keepalives_idle: 0
+    prod:
+      type: postgres
+      host: "{{ env_var('POSTGRES_HOST', 'postgres') }}"
+      user: "{{ env_var('POSTGRES_USER', 'mlops') }}"
+      password: "{{ env_var('POSTGRES_PASSWORD', 'mlops_password') }}"
+      port: "{{ env_var('POSTGRES_PORT', '5432') | int }}"
+      dbname: "{{ env_var('POSTGRES_DB', 'mlops') }}"
+      schema: analytics
+      threads: 8
+      keepalives_idle: 0
