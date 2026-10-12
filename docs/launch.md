@@ -24,8 +24,8 @@ Si vous utilisez Minikube avec le moteur Docker sous Windows :
 # Suppression propre si un ancien cluster avec un autre driver existe
 minikube delete --all
 
-# Démarrage avec le pilote docker et allocation de ressources adaptées
-minikube start --driver=docker --cpus=4 --memory=8192
+# Démarrage avec le pilote docker, 8 cœurs, 16 Go de RAM et support GPU NVIDIA
+minikube start --driver=docker --cpus=8 --memory=16384 --gpus=all
 
 # Vérification
 kubectl get nodes

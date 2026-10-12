@@ -61,9 +61,12 @@ A turnkey, production-grade, 100% open-source MLOps template orchestrated native
 
 ### 1. Initialize Cluster
 ```powershell
-# Option A: Docker Desktop -> Enable Kubernetes
-# Option B: Minikube
-minikube start --driver=docker --cpus=4 --memory=8192
+# Option A: Docker Desktop (Recommended on Windows — Native WSL2 & GPU support)
+# Settings -> Kubernetes -> Check "Enable Kubernetes" -> Apply & restart
+kubectl config use-context docker-desktop
+
+# Option B: Minikube (Optimized for Deep Learning: 8 vCPUs, 16 GB RAM & NVIDIA GPU)
+minikube start --driver=docker --cpus=8 --memory=16384 --gpus=all
 ```
 
 ### 2. Install KubeRay CRDs
@@ -116,7 +119,7 @@ kubectl port-forward svc/k8s-mlops-mlflow 5002:5000 -n k8s-mlops
 | **Initial Training** | `python -m src.training.train_xgboost` | `python -m src.training.train_xgboost` | Fits baseline XGBoost model, logs metrics (RMSE, R²), initializes Shapash explainer and registers version 1 in MLflow. |
 | **Ray Distributed HPO** | `python -m src.training.hpo_optuna` | `python -m src.training.hpo_optuna` | Distributed Bayesian parameter tuning via Ray workers and PostgreSQL (`optuna`), with automatic fallback. |
 | **Closed-Loop Retraining** | `python -m src.training.retrain_pipeline` | `python -m src.training.retrain_pipeline` | Complete autonomous loop: HPO -> XGBoost Retrain -> Champion vs Challenger (gain >= 2%) -> MLflow Promotion -> Hot-Reload. |
-| **Webhook Retraining** | N/A (REST API) | `Invoke-RestMethod -Uri http://localhost:8000/webhooks/retrain ...` | Asynchronous trigger invoked upon data or concept drift alert. |
+| **Webhook Retraining** | N/A (REST API) | `Invoke-RestMethod -Method Post -Uri http://localhost:8000/webhooks/trigger-retrain -Headers @{"x-webhook-secret"="k8s-mlops-super-secure-token"} -ContentType "application/json" -Body '{"source":"manual","event_type":"drift_alert","drift_score":0.42}'` | Asynchronous trigger invoked upon data or concept drift alert. |
 | **Drift Monitoring** | `python -m src.monitoring.drift_detector` | `python -m src.monitoring.drift_detector` | Runs Kolmogorov-Smirnov statistical tests and RMSE degradation checks via Evidently AI. |
 | **Queue Batch Worker** | `python -m src.utils.process_queue --dir data/queue` | `python -m src.utils.process_queue --dir data/queue` | Consumes queued CSV files and streams predictions to FastAPI `/predict/batch`. |
 | **Platform Health Check** | `python -m src.utils.check_status` | `python -m src.utils.check_status` | Audits FastAPI, PostgreSQL databases (`mlops`, `mlflow`, `optuna`), and MLflow tracking readiness. |
