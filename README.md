@@ -1,6 +1,7 @@
 # k8s_mlops_platform — Cloud-Native MLOps Template for Kubernetes
 
 [![CI Pipeline](https://github.com/caroheymes/template_kubernetes-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/caroheymes/template_kubernetes-platform)
+[![Tests](https://img.shields.io/badge/Tests-49%20passed-success.svg)](tests/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Kubernetes](https://img.shields.io/badge/Kubernetes-v1.28%2B-326CE5?logo=kubernetes&logoColor=white)](https://kubernetes.io)
 [![XGBoost](https://img.shields.io/badge/Model-XGBoost-EB5424)](https://xgboost.readthedocs.io)
@@ -121,6 +122,9 @@ kubectl port-forward svc/k8s-mlops-mlflow 5002:5000 -n k8s-mlops
 | **Closed-Loop Retraining** | `python -m src.training.retrain_pipeline` | `python -m src.training.retrain_pipeline` | Complete autonomous loop: HPO -> XGBoost Retrain -> Champion vs Challenger (gain >= 2%) -> MLflow Promotion -> Hot-Reload. |
 | **Webhook Retraining** | N/A (REST API) | `Invoke-RestMethod -Method Post -Uri http://localhost:8000/webhooks/trigger-retrain -Headers @{"x-webhook-secret"="k8s-mlops-super-secure-token"} -ContentType "application/json" -Body '{"source":"manual","event_type":"drift_alert","drift_score":0.42}'` | Asynchronous trigger invoked upon data or concept drift alert. |
 | **Drift Monitoring** | `python -m src.monitoring.drift_detector` | `python -m src.monitoring.drift_detector` | Runs Kolmogorov-Smirnov statistical tests and RMSE degradation checks via Evidently AI. |
+| **Threshold Calibration** | `python -m src.utils.threshold` | `python -m src.utils.threshold` | Calibrates optimal decision threshold (F1/F2, cost matrix) and plots confusion metrics. |
+| **Hot-Reload In-Memory** | `python -m src.utils.api_reloader` | `python -m src.utils.api_reloader` | Triggers immediate hot-reload of active model in memory with zero-downtime health verification. |
+| **MLflow Quality Gate** | `python -m src.utils.mlflow_manager` | `python -m src.utils.mlflow_manager` | Evaluates Champion vs Challenger metrics and enforces minimum relative gain (+2%) before alias promotion. |
 | **Queue Batch Worker** | `python -m src.utils.process_queue --dir data/queue` | `python -m src.utils.process_queue --dir data/queue` | Consumes queued CSV files and streams predictions to FastAPI `/predict/batch`. |
 | **Platform Health Check** | `python -m src.utils.check_status` | `python -m src.utils.check_status` | Audits FastAPI, PostgreSQL databases (`mlops`, `mlflow`, `optuna`), and MLflow tracking readiness. |
 | **Full MLOps Reset** | `python -m src.utils.full_reset_mlops` | `python -m src.utils.full_reset_mlops` | Purges MLflow runs/models, resets operational PostgreSQL tables, and bootstraps a fresh Champion baseline. |

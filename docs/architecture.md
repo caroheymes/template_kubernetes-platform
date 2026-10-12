@@ -1,7 +1,7 @@
 ---
 title: "Architecture Technique Spécification — k8s_mlops_platform"
 status: "final"
-version: "1.0.0"
+version: "1.1.0"
 created: "2026-10-12"
 updated: "2026-10-12"
 author: "Winston (System Architect) — BMad Architecture"
@@ -45,10 +45,10 @@ Le système applique les principes fondateurs du **Cloud Native Computing Founda
 * **Binds** : Le StatefulSet PostgreSQL, les schémas analytiques et le projet `dbt/`.
 * **Prevents** : La saturation de la base de tracking par les requêtes d'inférence et le manque de typage/validation des données analytiques.
 * **Rule** : PostgreSQL est partitionné en trois bases de données étanches :
-  1. `mlops` : héberge les schémas `features` (entraînement), `predictions` (logs d'inférence FastAPI), `analytics` (marts modélisés et testés par dbt) et `webhooks` (journalisation des événements).
+  1. `mlops` : héberge les schémas `staging` (vues de staging dbt), `features` (entraînement), `predictions` (logs d'inférence FastAPI), `analytics` (marts modélisés et testés par dbt) et `webhooks` (journalisation des événements).
   2. `mlflow` : backend store exclusif de MLflow (métadonnées d'expériences et Model Registry).
   3. `optuna` : RDB Storage dédié aux études d'optimisation distribuées.  
-  Un CronJob Kubernetes exécute périodiquement `dbt run && dbt test` sur la base `mlops`.
+  Un CronJob Kubernetes exécute périodiquement `dbt run --target prod && dbt test --target prod` sur la base `mlops`.
 
 ### AD-03 — Serving Asynchrone FastAPI & Découplage Inférence / Dashboard [ADOPTED]
 * **Binds** : Le microservice `serving` et les interfaces externes.
@@ -194,6 +194,22 @@ sequenceDiagram
     end
 ```
 
+### 3.4 Boîte à Outils Transverse & Maintenance Opérationnelle (`src/utils/`)
+
+Pour faciliter l'administration, le débogage et l'exploitation quotidienne en cluster ou en local, un ensemble de scripts utilitaires autonomes est exposé :
+
+| Utilitaire | Module | Rôle Opérationnel |
+| :--- | :--- | :--- |
+| **Rechargement à chaud** | `src.utils.api_reloader` | Force le rechargement en mémoire du modèle (`load_model(force=True)`) et vérifie la santé HTTP `/health/ready` sans redémarrage de conteneur. |
+| **Diagnostic plateforme** | `src.utils.check_status` | Vérifie la connectivité bout-en-bout : FastAPI `/health/live`, bases PostgreSQL (`mlops`, `mlflow`, `optuna`), et Model Registry MLflow. |
+| **Ingestion batch queue** | `src.utils.process_queue` | Consomme les fichiers CSV dans `data/queue/` par morceaux de 500 enregistrements et les pousse vers `/predict/batch`. |
+| **Arbitrage Champion/Challenger** | `src.utils.mlflow_manager` | Gère les alias `@champion`, applique le Quality Gate de gain relatif minimal (+2%) et archive les challengers rejetés. |
+| **Calibration de seuil** | `src.utils.threshold` | Calibre le seuil de décision optimal selon plusieurs critères (F1-score, F2-score, PR-AUC, matrice de coût métier) et génère la matrice de confusion. |
+| **Ingestion & Loader** | `src.utils.data_loader` | Lecture paginée des données depuis PostgreSQL avec bascule automatique sur générateur synthétique résilient. |
+| **Inspection SQL** | `src.utils.db` | Inspection des schémas, comptage des lignes et exécution de requêtes de maintenance multi-bases. |
+| **Feature Engineering** | `src.utils.features` | Encodage cyclique trigonométrique (sinus/cosinus) et normalisation standardisée (`StandardScaler`). |
+| **Grand Reset MLOps** | `src.utils.full_reset_mlops` | Purge propre et contrôlée (MLflow, PostgreSQL, queue locale) et bootstrap d'un modèle champion baseline initial. |
+
 ---
 
 ## 4. Modélisation des Données & Contrats d'Interface
@@ -202,6 +218,7 @@ sequenceDiagram
 
 ```sql
 -- Base : mlops
+CREATE SCHEMA IF NOT EXISTS staging;
 CREATE SCHEMA IF NOT EXISTS features;
 CREATE SCHEMA IF NOT EXISTS predictions;
 CREATE SCHEMA IF NOT EXISTS analytics;
@@ -305,7 +322,7 @@ src/dashboard/
 | Service | Port Interne Conteneur | Port Service K8s | Port Hôte Recommandé (Local) | URL d'Accès |
 | :--- | :---: | :---: | :---: | :--- |
 | **FastAPI Serving** | `8000` | `8000` | `8000` | `http://localhost:8000/docs` |
-| **Streamlit Dashboard** | `8501` | `8501` | `8503` | `http://localhost:8503` |
+| **Streamlit Dashboard** | `8503` | `8503` | `8503` | `http://localhost:8503` |
 | **MLflow Tracking** | `5000` | `5000` | `5002` | `http://localhost:5002` |
 | **PostgreSQL Database** | `5432` | `5432` | `5434` *(si forward)* | `localhost:5434` |
 
@@ -319,15 +336,22 @@ Le déploiement FastAPI est associé à un `HorizontalPodAutoscaler` basé sur l
 
 ## 8. Stratégie de Test & Matrice de Couverture
 
+La suite de validation automatisée comprend **49 tests Pytest** couvrant l'ensemble des couches applicatives, analytiques et d'infrastructure :
+
 1. **Tests Unitaires (`tests/unit/`)** :
    * Validation des fonctions d'entraînement XGBoost et Optuna avec mock des données.
    * Tests de validation des schémas Pydantic avec données nominales, aberrantes et manquantes.
    * Test de calcul de l'objet `SmartExplainer` Shapash.
+   * Tests des utilitaires transverses (`tests/unit/test_utils.py`) : calibration de seuil optimal (`find_optimal_threshold`), matrices de confusion, encodage de features cycliques sin/cos, qualité gate MLflow (`MLflowQualityGate`), rechargement à chaud (`api_reloader`), ingestion par lot (`process_queue`).
+   * Tests de configuration et résilience Streamlit (`tests/unit/test_dashboard_config.py`).
 2. **Tests d'Intégration (`tests/integration/`)** :
-   * Fixtures Pytest initialisant un conteneur PostgreSQL éphémère (ou mock SQLAlchemy).
-   * Validation des commandes `dbt compile` et tests sur tables d'exemple.
+   * Pooling SQLAlchemy multi-bases avec pool_pre_ping (`tests/integration/test_db_pool.py`).
+   * Client Object Storage avec fallback local (`tests/integration/test_storage_fallback.py`).
+   * Validation des contrats d'infrastructure Helm (`tests/integration/test_helm_contracts.py`) : syntaxe Go-template, correspondance des ports Ingress (8503), injection des secrets PostgreSQL et conformité des arguments dbt `--target prod`.
 3. **Tests d'API (`tests/api/`)** :
-   * `fastapi.testclient.TestClient` testant l'intégralité des routes REST, des codes de statut HTTP (200, 422, 500) et des headers de sécurité webhooks.
-4. **Validation Infrastructure Helm** :
+   * `fastapi.testclient.TestClient` testant l'intégralité des routes REST (`/health/live`, `/health/ready`, `/metrics`, `/predict`, `/predict/batch`, `/predict/explain`).
+   * Tests de sécurité des webhooks (`tests/api/test_webhooks.py`) : authentification par en-tête `x-webhook-secret` (codes 200, 401).
+4. **Validation Infrastructure Helm & CI/CD** :
    * `helm lint ./helm/`
-   * `helm template k8s-mlops ./helm/`
+   * `helm template mlops-test ./helm/ --set ingress.enabled=true --debug`
+   * Pipeline GitHub Actions exécutant Ruff, Pytest et Helm linting à chaque commit.
