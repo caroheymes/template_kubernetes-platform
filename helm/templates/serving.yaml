@@ -37,6 +37,9 @@ spec:
         {{- include "k8s-mlops.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: serving
     spec:
+      {{- if or .Values.serviceAccount.create .Values.serviceAccount.name }}
+      serviceAccountName: {{ .Values.serviceAccount.name | default (printf "%s-sa" (include "k8s-mlops.fullname" .)) }}
+      {{- end }}
       containers:
         - name: serving
           image: "{{ .Values.serving.image.repository }}:{{ .Values.serving.image.tag }}"
@@ -78,21 +81,25 @@ spec:
                 secretKeyRef:
                   name: {{ include "k8s-mlops.fullname" . }}-secrets
                   key: S3_ACCESS_KEY
+                  optional: true
             - name: S3_SECRET_KEY
               valueFrom:
                 secretKeyRef:
                   name: {{ include "k8s-mlops.fullname" . }}-secrets
                   key: S3_SECRET_KEY
+                  optional: true
             - name: AWS_ACCESS_KEY_ID
               valueFrom:
                 secretKeyRef:
                   name: {{ include "k8s-mlops.fullname" . }}-secrets
                   key: AWS_ACCESS_KEY_ID
+                  optional: true
             - name: AWS_SECRET_ACCESS_KEY
               valueFrom:
                 secretKeyRef:
                   name: {{ include "k8s-mlops.fullname" . }}-secrets
                   key: AWS_SECRET_ACCESS_KEY
+                  optional: true
           resources:
             {{- toYaml .Values.serving.resources | nindent 12 }}
           readinessProbe:
@@ -107,6 +114,22 @@ spec:
               port: 8000
             initialDelaySeconds: 15
             periodSeconds: 10
+        {{- if .Values.cloudSqlProxy.enabled }}
+        - name: cloud-sql-proxy
+          image: "{{ .Values.cloudSqlProxy.image }}"
+          imagePullPolicy: {{ .Values.cloudSqlProxy.pullPolicy }}
+          args:
+            {{- if .Values.cloudSqlProxy.privateIp }}
+            - "--private-ip"
+            {{- end }}
+            - "--structured-logs"
+            - "--port={{ .Values.cloudSqlProxy.port | default 5432 }}"
+            - "{{ .Values.cloudSqlProxy.instanceConnectionName }}"
+          securityContext:
+            runAsNonRoot: true
+          resources:
+            {{- toYaml .Values.cloudSqlProxy.resources | nindent 12 }}
+        {{- end }}
 {{- if .Values.serving.autoscaling.enabled }}
 ---
 apiVersion: autoscaling/v2

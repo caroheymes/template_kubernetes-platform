@@ -139,3 +139,37 @@ ingress:
         - path: /mlflow
           pathType: Prefix
           service: mlflow
+
+# Kubernetes ServiceAccount / Workload Identity
+serviceAccount:
+  create: false
+  name: ""
+  annotations: {}
+
+# Cloud SQL Auth Proxy Sidecar (GCP / GKE)
+cloudSqlProxy:
+  enabled: false
+  image: "gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.10.1"
+  pullPolicy: "IfNotPresent"
+  instanceConnectionName: ""
+  port: 5432
+  privateIp: false
+  resources:
+    limits:
+      cpu: "500m"
+      memory: "256Mi"
+    requests:
+      cpu: "50m"
+      memory: "64Mi"
+
+# External Secrets Operator (GCP Secret Manager)
+externalSecrets:
+  enabled: false
+  refreshInterval: "1h"
+  secretStore:
+    projectID: ""
+  remoteSecrets:
+    postgresUserKey: "mlops-db-user"
+    postgresPasswordKey: "mlops-db-password"
+    webhookTokenKey: "mlops-webhook-token"
+

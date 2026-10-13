@@ -20,6 +20,9 @@ spec:
             app.kubernetes.io/component: analytics
         spec:
           restartPolicy: OnFailure
+          {{- if or .Values.serviceAccount.create .Values.serviceAccount.name }}
+          serviceAccountName: {{ .Values.serviceAccount.name | default (printf "%s-sa" (include "k8s-mlops.fullname" .)) }}
+          {{- end }}
           containers:
             - name: dbt
               image: "{{ .Values.dbtCronJob.image.repository }}:{{ .Values.dbtCronJob.image.tag }}"

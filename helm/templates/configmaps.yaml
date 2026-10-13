@@ -7,8 +7,8 @@ metadata:
 data:
   ENVIRONMENT: "production"
   LOG_LEVEL: "INFO"
-  POSTGRES_HOST: "{{ include "k8s-mlops.fullname" . }}-postgres"
-  POSTGRES_PORT: {{ .Values.postgres.service.port | quote }}
+  POSTGRES_HOST: {{ ternary "127.0.0.1" (printf "%s-postgres" (include "k8s-mlops.fullname" .)) .Values.cloudSqlProxy.enabled | quote }}
+  POSTGRES_PORT: {{ ternary (toString (default 5432 .Values.cloudSqlProxy.port)) (toString .Values.postgres.service.port) .Values.cloudSqlProxy.enabled | quote }}
   POSTGRES_DB: "mlops"
   MLFLOW_TRACKING_URI: "http://{{ include "k8s-mlops.fullname" . }}-mlflow:{{ .Values.mlflow.service.port }}"
   SERVING_API_URL: "http://{{ include "k8s-mlops.fullname" . }}-serving:{{ .Values.serving.service.port }}"

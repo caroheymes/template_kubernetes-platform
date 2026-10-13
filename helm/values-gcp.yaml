@@ -1,0 +1,162 @@
+# ==============================================================================
+# values-gcp.yaml — Configuration Helm de référence pour Google Cloud / GKE
+# ==============================================================================
+# Cette configuration adapte k8s_mlops_platform à Google Cloud Platform :
+# 1. Base PostgreSQL infogérée Cloud SQL via Auth Proxy Sidecar (port 5432).
+# 2. Stockage des artefacts MLflow et modèles XGBoost sur Google Cloud Storage (gs://).
+# 3. Synchronisation automatique des secrets via External Secrets Operator & Secret Manager.
+# 4. Zéro clé statique JSON grâce à Workload Identity (mlops-ksa ↔ mlops-gsa).
+# ==============================================================================
+
+nameOverride: ""
+fullnameOverride: "k8s-mlops"
+
+# 1. Base PostgreSQL locale : désactivée au profit de Cloud SQL
+postgres:
+  enabled: false
+
+# 2. Sidecar Cloud SQL Auth Proxy (connecteur sécurisé sans clé statique)
+cloudSqlProxy:
+  enabled: true
+  image: "gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.10.1"
+  pullPolicy: "IfNotPresent"
+  # Format : <PROJECT_ID>:<REGION>:<INSTANCE_NAME>
+  instanceConnectionName: "PROJECT_ID:europe-west1:mlops-db"
+  port: 5432
+  # Passer à true si Cloud SQL est configuré sur IP privée (VPC Peering)
+  privateIp: false
+  resources:
+    limits:
+      cpu: "500m"
+      memory: "256Mi"
+    requests:
+      cpu: "50m"
+      memory: "64Mi"
+
+# 3. Workload Identity & ServiceAccount Kubernetes
+serviceAccount:
+  create: true
+  name: "mlops-ksa"
+  annotations:
+    # Lien d'emprunt d'identité GCP Workload Identity
+    iam.gke.io/gcp-service-account: "mlops-gsa@PROJECT_ID.iam.gserviceaccount.com"
+
+# 4. External Secrets Operator (synchronisation automatique depuis GCP Secret Manager)
+externalSecrets:
+  enabled: true
+  refreshInterval: "1h"
+  secretStore:
+    projectID: "PROJECT_ID"
+  remoteSecrets:
+    postgresUserKey: "mlops-db-user"
+    postgresPasswordKey: "mlops-db-password"
+    webhookTokenKey: "mlops-webhook-token"
+
+# 5. MLflow Tracking & Model Registry avec backend Cloud SQL & artefacts GCS
+mlflow:
+  enabled: true
+  image: "ghcr.io/mlflow/mlflow:v2.12.1"
+  pullPolicy: "IfNotPresent"
+  replicas: 1
+  service:
+    port: 5000
+  # Bucket GCS créé via : gcloud storage buckets create gs://mlops-artifacts-[PROJECT_ID]
+  artifactRoot: "gs://mlops-artifacts-PROJECT_ID/mlflow"
+  resources:
+    limits:
+      cpu: "1000m"
+      memory: "1Gi"
+    requests:
+      cpu: "250m"
+      memory: "256Mi"
+
+# 6. FastAPI Serving Microservice (Images hébergées sur Google Artifact Registry)
+serving:
+  enabled: true
+  image:
+    repository: "europe-west1-docker.pkg.dev/PROJECT_ID/mlops-repo/mlops-serving"
+    tag: "v1.0.0"
+    pullPolicy: "IfNotPresent"
+  replicas: 2
+  service:
+    port: 8000
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 8
+    targetCPUUtilizationPercentage: 70
+  webhookToken: "k8s-mlops-gcp-secure-token"
+  resources:
+    limits:
+      cpu: "1000m"
+      memory: "1Gi"
+    requests:
+      cpu: "200m"
+      memory: "256Mi"
+
+# 7. Streamlit Multi-Page UI
+streamlit:
+  enabled: true
+  image:
+    repository: "europe-west1-docker.pkg.dev/PROJECT_ID/mlops-repo/mlops-app"
+    tag: "v1.0.0"
+    pullPolicy: "IfNotPresent"
+  replicas: 1
+  service:
+    port: 8503
+    targetPort: 8503
+  resources:
+    limits:
+      cpu: "1000m"
+      memory: "1Gi"
+    requests:
+      cpu: "200m"
+      memory: "256Mi"
+
+# 8. CronJob dbt pour l'actualisation continue des tables Marts dans Cloud SQL
+dbtCronJob:
+  enabled: true
+  schedule: "*/15 * * * *"
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  image:
+    repository: "europe-west1-docker.pkg.dev/PROJECT_ID/mlops-repo/mlops-app"
+    tag: "v1.0.0"
+    pullPolicy: "IfNotPresent"
+  resources:
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+
+# 9. Ray Cluster distribué (Optionnel / GKE NodePool dédié avec Autoscaling)
+ray:
+  enabled: false
+  image: "rayproject/ray:2.9.0-py310"
+  head:
+    cpu: "1000m"
+    memory: "2Gi"
+  workers:
+    replicas: 2
+    cpu: "1000m"
+    memory: "2Gi"
+
+# 10. Ingress GCP / GKE (Optionnel)
+ingress:
+  enabled: false
+  className: "nginx"
+  annotations: {}
+  hosts:
+    - host: mlops.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+          service: streamlit
+        - path: /api
+          pathType: Prefix
+          service: serving
+        - path: /mlflow
+          pathType: Prefix
+          service: mlflow

@@ -175,12 +175,31 @@ For interactive workflows and operational visibility:
 
 ---
 
+## ☁️ Cloud Deployment (Google Cloud Platform / GKE)
+
+This branch introduces native Google Cloud Platform (GCP) integration following the production patterns from [`caroheymes/mlflow-kubernetes`](https://github.com/caroheymes/mlflow-kubernetes):
+
+* **Managed Cloud SQL (PostgreSQL 16)** via Cloud SQL Auth Proxy sidecar (zero static keys).
+* **Google Cloud Storage (GCS)** for MLflow tracking artifacts (`gs://...`).
+* **External Secrets Operator (ESO)** synchronized with Google Secret Manager.
+* **Workload Identity** binding Kubernetes ServiceAccounts (`mlops-ksa`) directly to Google ServiceAccounts (`mlops-gsa`).
+
+Deploy on GKE with a single Helm command:
+```bash
+helm upgrade --install k8s-mlops helm/ -f helm/values-gcp.yaml -n mlops --create-namespace
+```
+
+📖 Read the complete step-by-step provisionning guide in [docs/gcp-deployment.md](docs/gcp-deployment.md).
+
+---
+
 ## 📚 Documentation
 
 
 * [PRD Specification](docs/prd.md)
 * [Technical Architecture Spine](docs/architecture.md)
 * [Step-by-Step Launch Guide](docs/launch.md)
+* [GCP / GKE Deployment Guide](docs/gcp-deployment.md)
 
 ---
 
